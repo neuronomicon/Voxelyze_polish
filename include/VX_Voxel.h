@@ -9,6 +9,14 @@ Voxelyze is distributed in the hope that it will be useful, but WITHOUT ANY WARR
 See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 *******************************************************************************/
 
+/*******************************************************************************
+Modified Copyright (c) 2026, YoonSik Shim
+
+[Modification Notice]
+- Applied alignas(64) and overloaded aligned new/delete operators to prevent false sharing in multi-threading.
+- Added originPos, originOrient caches and Set_Pos_Direct() backdoor control method.
+*******************************************************************************/
+
 #ifndef VX_VOXEL_H
 #define VX_VOXEL_H
 
@@ -119,19 +127,7 @@ public:
 	}
 
 
-/*	Vec3D<double> originalPosition() const 
-	{
-		double s = mat->nominalSize();
-		return Vec3D<double>((double)ix*s, (double)iy*s, (double)iz*s);
-	} //!< Returns the initial (nominal) position of this voxel.
-*/
-
-
 	Vec3D<double> displacement() const {return (pos - originalPosition());} //!< Returns the 3D displacement of this voxel from its original location in meters (GCS)/
-	
-
-	// Added 2025-01-12 00:24	
-//	void Set_Pos_Direct( Vec3D<double> iPos ){	pos = iPos;	}
 	
 	
 	Vec3D<double> size() const {return cornerOffset(PPP)-cornerOffset(NNN);} //!< Returns the current deformed size of this voxel in the local voxel coordinates system (LCS). If asymmetric forces are acting on this voxel, the voxel may not be centered on position(). Use cornerNegative() and cornerPositive() to determine this information.

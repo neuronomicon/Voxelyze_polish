@@ -9,6 +9,16 @@ Voxelyze is distributed in the hope that it will be useful, but WITHOUT ANY WARR
 See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 *******************************************************************************/
 
+/*******************************************************************************************************
+Modified Copyright (c) 2026, YoonSik Shim
+
+[Modification Notice]
+- Split updateForces() into preUpdateGeometry() and finalUpdateForces() (3-Phase Update) 
+  to resolve non-deterministic behavior (data races) in OpenMP multi-threaded simulations.
+- Added intermediate velocity cache variables (dPos2, dAngle1, dAngle2) for damping calculations.
+*******************************************************************************************************/
+
+
 #ifndef VX_LINK_H
 #define VX_LINK_H
 

@@ -9,6 +9,16 @@ Voxelyze is distributed in the hope that it will be useful, but WITHOUT ANY WARR
 See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 *******************************************************************************/
 
+/*******************************************************************************
+Copyright (c) 2015, Jonathan Hiller
+Modified Copyright (c) 2026, YoonSik Shim
+
+[Modification Notice]
+- Upgraded default template type from float to double.
+- Rewritten RotateVec3D method using an optimized Rodrigues' rotation formula (vector cross products) instead of heavy matrix multiplications.
+*******************************************************************************/
+
+
 #ifndef _QUAT3D_H
 #define _QUAT3D_H
 
@@ -165,26 +175,6 @@ public:
 
 	} //!< Overwrites this quaternion with the calculated rotation that would transform the specified RotateFrom vector to point in the positve X direction. Note: function changes this quaternion.  @param[in] RotateFrom An arbitrary direction vector. Does not need to be normalized.
 
-
-	/*
-	const Vec3D<T> RotateVec3D(const Vec3D<T>& f) const { 
-		T fx=f.x, fy=f.y, fz=f.z;
-		T tw = fx*x + fy*y + fz*z;
-		T tx = fx*w - fy*z + fz*y;
-		T ty = fx*z + fy*w - fz*x;
-		T tz = -fx*y + fy*x + fz*w;
-		return Vec3D<T>(w*tx + x*tw + y*tz - z*ty, w*ty - x*tz + y*tw + z*tx, w*tz + x*ty - y*tx + z*tw);
-	} //!< Returns a vector representing the specified vector "f" rotated by this quaternion. @param[in] f The vector to transform.
-
-	template <typename U> const Vec3D<U> RotateVec3D(const Vec3D<U>& f) const {
-		U fx = (U)(f.x), fy=(U)(f.y), fz=(U)(f.z);
-		U tw = (U)(fx*x + fy*y + fz*z);
-		U tx = (U)(fx*w - fy*z + fz*y);
-		U ty = (U)(fx*z + fy*w - fz*x);
-		U tz = (U)(-fx*y + fy*x + fz*w);
-		return Vec3D<U>((U)(w*tx + x*tw + y*tz - z*ty), (U)(w*ty - x*tz + y*tw + z*tx), (U)(w*tz + x*ty - y*tx + z*tw));
-	} //!< Returns a vector representing the specified vector "f" rotated by this quaternion. Mixed template parameter version. @param[in] f The vector to transform.
-	*/
 
 	const Vec3D<T> RotateVec3D(const Vec3D<T>& v) const { 
 		// Optimized: v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v)

@@ -9,6 +9,14 @@ Voxelyze is distributed in the hope that it will be useful, but WITHOUT ANY WARR
 See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 *******************************************************************************/
 
+/************************************************************************************************
+Modified Copyright (c) 2026, YoonSik Shim
+
+[Modification Notice]
+- Upgraded default template types and core math operations from float to double for precision.
+- Optimized RotX, RotY, and RotZ methods to cache sin and cos values as local variables.
+**************************************************************************************************/
+
 
 #ifndef _VEC3D_H
 #define _VEC3D_H

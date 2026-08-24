@@ -9,9 +9,14 @@ Voxelyze is distributed in the hope that it will be useful, but WITHOUT ANY WARR
 See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 *******************************************************************************/
 
+/*******************************************************************************
+Copyright (c) 2026, YoonSik Shim (Based on Voxelyze by Jonathan Hiller)
 
-
-
+[Modification Notice]
+- Newly created file to implement nested parallelism architecture (doTimeStep_Nested, updateCollisions_Nested).
+- Added Windows Processor Group Thread Binding (PinToGroupIfNeeded / SetThreadGroupAffinity) to optimize performance for large-scale multi-core systems (e.g., AMD Threadripper 3990X).
+- Resolved deadlocks in collision processing using copyprivate and team-wide execution blocks.
+*******************************************************************************/
 
 
 #ifdef _WIN32

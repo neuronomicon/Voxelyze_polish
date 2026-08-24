@@ -9,6 +9,14 @@ Voxelyze is distributed in the hope that it will be useful, but WITHOUT ANY WARR
 See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 *******************************************************************************/
 
+/*******************************************************************************
+Modified Copyright (c) 2026, YoonSik Shim
+
+[Modification Notice]
+- Upgraded variables to double precision.
+- Applied margin-based Epsilon approach (floorPenetration() >= 1E-14) for stable floor collision detection.
+*******************************************************************************/
+
 #include "VX_Voxel.h"
 #include "VX_Material.h"
 #include "VX_Link.h"

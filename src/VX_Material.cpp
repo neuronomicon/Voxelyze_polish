@@ -9,6 +9,14 @@ Voxelyze is distributed in the hope that it will be useful, but WITHOUT ANY WARR
 See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 *******************************************************************************/
 
+/*******************************************************************************
+Modified Copyright (c) 2026, YoonSik Shim
+
+[Modification Notice]
+- Added DP_EPSILON macro to handle precise floating-point comparisons safely.
+- Upgraded physical property variables and calculations to double.
+*******************************************************************************/
+
 #include "VX_Material.h"
 #include <assert.h>
 

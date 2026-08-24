@@ -9,6 +9,15 @@ Voxelyze is distributed in the hope that it will be useful, but WITHOUT ANY WARR
 See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 *******************************************************************************/
 
+/****************************************************************************************************
+Modified Copyright (c) 2026, YoonSik Shim
+
+[Modification Notice]
+- Refactored doTimeStep() to implement a 3-phase execution loop (Pre-update Geometry -> 
+  Poisson's Strain Synchronization -> Final Force Calculation) utilizing OpenMP implicit barriers
+  to guarantee 100% deterministic simulation results.
+*****************************************************************************************************/
+
 #include "Voxelyze.h"
 #include "VX_Material.h"
 #include "VX_MaterialLink.h"
@@ -443,22 +452,6 @@ void CVoxelyze::resetTime()
 
 	for (std::vector<CVX_Voxel*>::iterator it=voxelsList.begin(); it != voxelsList.end(); it++) 
 		(*it)->reset(); //reset each voxel
-
-/*
-	for ( int i = 0 ; i<voxelsList.size(); i++ )
-	{
-		printf( "%d ", voxelsList[i]->boolStates ); //reset each voxel
-	}
-	printf("\n");
-*/
-
-/*	for ( int i = 0 ; i<voxelsList.size(); i++ ) 
-		voxelsList[i]->reset(); //reset each voxel
-
-	for ( int i = 0 ; i<linksList.size(); i++ ) 
-		linksList[i]->reset(); //reset each voxel
-*/
-
 }
 
 void CVoxelyze::clear() //deallocates and returns everything to defaults (except voxel size)

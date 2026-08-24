@@ -9,6 +9,14 @@ Voxelyze is distributed in the hope that it will be useful, but WITHOUT ANY WARR
 See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 *******************************************************************************/
 
+/*******************************************************************************
+Modified Copyright (c) 2026, YoonSik Shim
+
+[Modification Notice]
+- Upgraded internal container data types to double.
+- Removed constant boundary checking overhead in operator[] and operator() for non-debug builds by calling getIndexFast().
+*******************************************************************************/
+
 
 #ifndef ARRAY3D_H
 #define ARRAY3D_H
@@ -92,44 +100,6 @@ public:
 	const T& operator ()(int i, int j, int k) const {return at(Index3D(i, j, k));} //!< Operator "()" overloads (takes individual x, y, z indices) const verison
 		  T& operator ()(int i, int j, int k)		{return at(Index3D(i, j, k));} //!< Operator "()" overloads (takes individual x, y, z indices)
 	
-
-
-
-	// [수정] operator()와 operator[]를 최적화
-	// 디버그 모드가 아닐 때는 경계 검사를 수행하지 않는 getIndexFast를 사용하여 속도 비약적 향상
-/*
-	const T& operator [](const Index3D i3D) const {
-	#ifdef _DEBUG
-		return at(i3D);
-	#else
-		return data[getIndexFast(i3D.x, i3D.y, i3D.z)];
-	#endif
-	}
-
-	T& operator [](const Index3D i3D) {
-	#ifdef _DEBUG
-		return at(i3D);
-	#else
-		return data[getIndexFast(i3D.x, i3D.y, i3D.z)];
-	#endif
-	}
-
-	const T& operator ()(int i, int j, int k) const {
-	#ifdef _DEBUG
-		return at(Index3D(i, j, k));
-	#else
-		return data[getIndexFast(i, j, k)];
-	#endif
-	}
-
-	T& operator ()(int i, int j, int k) {
-	#ifdef _DEBUG
-		return at(Index3D(i, j, k));
-	#else
-		return data[getIndexFast(i, j, k)];
-	#endif
-	}
-*/
 
 
 	//!Clears all data from the array and frees up all memory.

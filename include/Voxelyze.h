@@ -9,6 +9,14 @@ Voxelyze is distributed in the hope that it will be useful, but WITHOUT ANY WARR
 See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 *******************************************************************************/
 
+/*******************************************************************************
+Modified Copyright (c) 2026, YoonSik Shim
+
+[Modification Notice]
+- Added thread control flags (num_thread, is_thread, is_nested) for dynamic runtime thread configuration.
+- Applied alignas(64) memory alignment structures for core classes.
+*******************************************************************************/
+
 #ifndef VOXELYZE_H
 #define VOXELYZE_H
 
