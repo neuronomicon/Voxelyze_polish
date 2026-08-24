@@ -1,5 +1,17 @@
 # [Voxelyze Engine]: OpenMP Inconsistency Fix & Large-Thread Optimization
 
+This repository is a forked and modified version of the original [Voxelyze Engine](원본 깃허브 링크). 
+All original credits and copyrights belong to Jonathan Hiller and contributors.
+
+### Key Modifications in this Fork
+* **OpenMP Inconsistency Fix:** Resolved non-deterministic behavior when using OpenMP by implementing a 3-Phase Update architecture.
+* **Precision Enhancement:** Hardcoded floating-point variables from `float` to `double` for mathematical stability.
+* **Large Thread Group Fix:** Added processor group affinity binding for Windows environments to support CPUs with 64+ threads (e.g., AMD Threadripper 3990X).
+
+**[Disclaimer]**
+Please note that this fixed version is an early patch modified for a personal project. Floating-point types have been hardcoded to `double`, and some parts of the code may appear somewhat unpolished. However, the engine functions perfectly and can be used as-is without any operational issues.
+
+### Intro
 The Fixed version represents a major overhaul of the original engine, focusing on three core improvements: **1) resolving non-deterministic arithmetic issues (Inconsistency)**, **2) enhancing the physical precision of the engine**, and **3) optimizing performance and eliminating cache bottlenecks in multi-core/multi-threaded environments**. Additionally, it includes **critical fixes for thread group management when using OpenMP with large thread counts (64 or more threads, e.g., AMD Threadripper 3990X and above) in a Windows environment.**
 
 ### $\color{orange}{\text{▶ Inconsistency problem exists in OMP Multithreaded Simulation}}$
