@@ -1,58 +1,75 @@
-Voxelyze
-========
+# [Voxelyze Engine]: OpenMP Inconsistency Fix & Large-Thread Optimization
 
-Voxelyze is a general purpose multi-material voxel simulation library for static and dynamic analysis. To quickly get a feel for its capabilities you can create and play with Voxelyze objects using [VoxCAD](http://www.voxcad.com) (Windows and Linux executables available). An paper describing the theory and capabilities of Voxelyze has been published in Soft Robotics journal: "[Dynamic Simulation of Soft Multimaterial 3D-Printed Objects](http://online.liebertpub.com/doi/pdfplus/10.1089/soro.2013.0010)" (2014). [Numerous](https://sites.google.com/site/jonhiller/hardware/soft-robots) 
-[academic](http://creativemachines.cornell.edu/soft-robots), [corporate](http://www.fastcompany.com/3006259/stratasyss-programmable-materials-just-add-water), and [educational](http://www.sciencebuddies.org/science-fair-projects/project_ideas/Robotics_p016.shtml) projects make use of Voxelyze.
+This repository is a forked and modified version of the original [Voxelyze Engine](https://github.com/jonhiller/Voxelyze)
+All original credits and copyrights belong to Jonathan Hiller and contributors.
 
+**Modified and maintained by [Y.S.Shim](https://github.com/neuronomicon)**
 
-User guide: [https://github.com/jonhiller/Voxelyze/wiki](https://github.com/jonhiller/Voxelyze/wiki)
+### Key Modifications in this Fork
+* **OpenMP Inconsistency Fix:** Resolved non-deterministic behavior when using OpenMP by implementing a 3-Phase Update architecture.
+* **Precision Enhancement:** Hardcoded floating-point variables from `float` to `double` for mathematical stability.
+* **Large Thread Group Fix:** Added processor group affinity binding for Windows environments to support CPUs with 64+ threads (e.g., AMD Threadripper 3990X).
 
-Documentation: [http://jonhiller.github.io/Voxelyze/annotated.html](http://jonhiller.github.io/Voxelyze/annotated.html)
+**[Disclaimer]**
+Please note that this fixed version is an early patch modified for a personal project. Floating-point types have been hardcoded to `double`, and some parts of the code may appear somewhat unpolished. However, the engine functions perfectly and can be used as-is without any operational issues.
 
+### Intro
+The Fixed version represents a major overhaul of the original engine, focusing on three core improvements: **1) resolving non-deterministic arithmetic issues (Inconsistency)**, **2) enhancing the physical precision of the engine**, and **3) optimizing performance and eliminating cache bottlenecks in multi-core/multi-threaded environments**. Additionally, it includes **critical fixes for thread group management when using OpenMP with large thread counts (64 or more threads, e.g., AMD Threadripper 3990X and above) in a Windows environment.**
 
-Basic Usage
---------
+### $\color{orange}{\text{▶ Inconsistency Problem in the Original OpenMP Multi-threaded Simulation}}$
+Many researchers widely use this engine for studies related to the evolution of voxel-based robots. For these applications, it is an absolute requirement that identical voxel parameters starting from the same initial conditions produce the exact same simulation progress. Although researchers might have already been aware of this problem, to the best of my knowledge, I have not seen this issue of OpenMP inconsistency raised anywhere online or in existing literature up to this point. However, in the original version of the Voxelyze engine, enabling OpenMP introduced non-deterministic behavior, causing simulation values to fluctuate across runs despite identical starting conditions (using \#define USE_OMP). This fixed version successfully identifies the root cause of this inconsistency and restructures the underlying code. As a result, the engine now guarantees perfectly deterministic and identical simulation outcomes, even with OpenMP fully active.
 
-Basic use of Voxelyze consists of five simple steps:
+### **Unchanged Files (Omitted from this patch)**
+The following files remain identical to the original version and are therefore not included in this repository:
+* `VX_Utils.h`
+* `VX_MeshRender.h`
+* `VX_MeshRender.cpp`
 
-1. Create a Voxelyze instance
-2. Create a material
-3. Add voxels using this material
-4. Specify voxels that should be fixed in place or have force applied
-5. Execute timesteps
+## Change List
 
-```c++
-#include "Voxelyze.h"
-CVoxelyze Vx(0.005); //5mm voxels
-CVX_Material* pMaterial = Vx.addMaterial(1000000, 1000); //A material with stiffness E=1MPa and density 1000Kg/m^3
-CVX_Voxel* Voxel1 = Vx.setVoxel(pMaterial, 0, 0, 0); //Voxel at index x=0, y=0. z=0
-Voxel1->external()->setFixedAll(); //Fixes all 6 degrees of freedom with an external condition
-for (int i=0; i<100; i++) Vx.doTimeStep(); //simulates 100 timesteps
-```
+### 1. Enhancing Numerical Precision and Mathematical Stability (Precision & Math)
 
-That particular example won't do anything interesting - the single voxel will just stay put. Here is another slightly more interesting example to create and test a 3-voxel cantilever beam
+To reduce accumulating rounding errors during physical computations and improve overall accuracy, the fundamental data types and arithmetic logic across the system have been upgraded.
 
-```c++
-#include "Voxelyze.h"
-CVoxelyze Vx(0.005); //5mm voxels
-CVX_Material* pMaterial = Vx.addMaterial(1000000, 1000); //A material with stiffness E=1MPa and density 1000Kg/m^3
-CVX_Voxel* Voxel1 = Vx.setVoxel(pMaterial, 0, 0, 0); //Voxel at index x=0, y=0. z=0
-CVX_Voxel* Voxel2 = Vx.setVoxel(pMaterial, 1, 0, 0);
-CVX_Voxel* Voxel3 = Vx.setVoxel(pMaterial, 2, 0, 0); //Beam extends in the +X direction
+*   **Change in Default Floating-Point Type:** The default template types for core data structures like `Vec3D.h`, `Quat3D.h`, and `Array3D.h` were changed from `float` to `double`. Consequently, variables handling mass, density, stiffness, stress, and strain in `CVX_Material` and its derived classes were uniformly upgraded to `double`.
+*   **Epsilon-Based Comparisons:** To prevent errors caused by direct `== 0.0` floating-point comparisons, a margin-based approach (Epsilon) was applied.
+    *   In `VX_Voxel.cpp`, floor collision detection now uses `floorPenetration() >= 1E-14` instead of `floorPenetration() >= 0`.
+    *   A macro `#define DP_EPSILON 1.192092896e-07` was added to `VX_MaterialLink.cpp` and `VX_Material.cpp` to perform precise floating-point comparisons, such as `fabs(f1+1.0) < DP_EPSILON`.
+*   **Vector/Quaternion Operation Optimization:** 
+    *   In `Vec3D.h`, the `RotX`, `RotY`, and `RotZ` methods were optimized to cache `sin` and `cos` values as local variables to avoid redundant calculations.
+    *   In `Quat3D.h`, the `RotateVec3D` method was rewritten using an optimized Rodrigues' rotation formula leveraging vector cross products (`v + (t * w) + q_vec.Cross(t)`) instead of heavy matrix multiplications, significantly improving computation speed.
 
-Voxel1->external()->setFixedAll(); //Fixes all 6 degrees of freedom with an external condition on Voxel 1
-Voxel3->external()->setForce(0, 0, -1); //pulls Voxel 3 downward with 1 Newton of force.
+### 2. Preventing Memory False Sharing
 
-for (int i=0; i<100; i++) Vx.doTimeStep(); //simulate  100 timesteps.
+Memory alignment techniques were introduced to prevent CPU cache line invalidation (false sharing), which occurs when multiple threads update adjacent objects in memory simultaneously in a multi-threaded environment.
 
-```
+*   **Forced Class Memory Alignment:** The `alignas(64)` attribute was applied to the declarations of core physical simulation objects, including `CVoxelyze`, `CVX_Collision`, `CVX_External`, `CVX_Link`, `CVX_Material`, and `CVX_Voxel`.
+*   **Dynamic Allocation Optimization:** The `new`, `delete`, `new[]`, and `delete[]` operators were overloaded within these classes. By using `_aligned_malloc(size, 64)` and `_aligned_free` instead of the standard `malloc`, the starting memory address of instantiated objects is forced to be a multiple of the L1 cache line size (64 bytes), thereby blocking memory interference between threads.
 
-For further usage, please refer to the [user guide](https://github.com/jonhiller/Voxelyze/wiki). Complete documentation is avaialable [here](http://jonhiller.github.io/Voxelyze/annotated.html).
+### 3. Resolving Non-Deterministic Operations (3-Phase Update)
 
-Compiling Voxelyze
---------
+The critical error where simulation results varied every time due to read-write data races during OpenMP multi-threading execution has been structurally resolved.
 
-The Voxelyze code is structured as a library and compiles on windows and linux. An included Visual Studio project compiles Voxelyze to a static *.lib, and the usual "make" can be executed on linux to build a static *.a library.
+*   **Function Splitting and State Preservation:** The massive `updateForces()` function in the original `VX_Link.cpp` was split into two separate functions: `preUpdateGeometry()` and `finalUpdateForces()`. Furthermore, to prevent the loss of velocity information required for damping calculations, member variables `Vec3D<> dPos2, dAngle1, dAngle2;` were added to `VX_Link.h` to cache intermediate values.
+*   **Applying Implicit Barriers via Loop Separation:** In `Voxelyze.cpp`, the operations handled by a single parallel loop in `doTimeStep()` were separated into three distinct phases:
+    1. Updates the geometric information of each link (Write-only).
+    2. Synchronizes the Poisson's strain cache for voxels (No collision).
+    3. Calculates the final force and stress based on synchronized data (Read-only).
+*   This clear separation guarantees 100% identical and deterministic simulation results regardless of thread scheduling environments.
 
-Define "USE_OMP" in the preprocessor to enable multithreaded solving.
+### 4. Introduction of Nested Parallelism and Core Allocation (`Voxelyze_Nested.cpp`)
 
+To simultaneously evaluate dozens of voxel robots in algorithms like neuroevolution, a new nested parallelism architecture was added, parallelizing both the outer loop (number of robots) and the inner loop (physics engine updates).
+
+*   **Addition of `Voxelyze_Nested.cpp`:** This newly created file implements the `doTimeStep_Nested` and `updateCollisions_Nested` functions which did not exist in the original version.
+*   **Deadlock Prevention (Team-wide Execution):** Previously, collision processing used `#pragma omp single` so that only the master thread executed it, which could cause deadlocks in nested environments. In the new code, the condition is evaluated using `#pragma omp single copyprivate`, and then all threads in the inner parallel team simultaneously enter `updateCollisions_Nested()` to share the workload safely.
+*   **Windows Processor Group Thread Binding (Thread Affinity):** For systems with 64 or more threads (e.g., AMD Threadripper 3990X), an issue where cores remain underutilized due to Windows OS processor group divisions was addressed. The `PinToGroupIfNeeded()` function, which calls the `SetThreadGroupAffinity` API, was implemented to explicitly bind threads to specific CPU groups, maximizing hardware resource utilization.
+
+### 5. Data Access Optimization and Feature Expansion
+
+*   **Removing `Array3D.h` Access Overhead:** The structure that constantly checked boundaries for safety inside `operator[]` and `operator()` was modified. For non-debug builds (when `#ifdef _DEBUG` is false), it now calls `getIndexFast()` to access memory directly, eliminating severe data retrieval bottlenecks.
+*   **Permanent Preservation of Voxel Position Data (`VX_Voxel.h/cpp`):** Variables `originPos` and `originOrient`, along with methods `Set_OriginPos()` and `original_Orient()`, were added to remember the voxel's initial position and orientation. Previously, `originalPosition()` calculated the position mathematically every time it was called, but it now simply returns the cached `originPos`. Additionally, a backdoor method `Set_Pos_Direct()` was introduced to manually control voxel positions from external wrappers.
+*   **Multi-thread Control Flags:** Variables `num_thread`, `is_thread`, and `is_nested` were added inside `Voxelyze.h`, providing a clean interface to dynamically control thread usage and thread count at runtime from external modules (like a DLL wrapper).
+
+▶ Modified Dec 2025, Published Aug 2026 by Yoonsik Shim (Y.S.Shim, NeuronomicoN)
+    Department of Software Engineering, Pai Chai University, Daejeon, South Korea.
