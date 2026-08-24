@@ -7,7 +7,9 @@ Many researchers widely use this engine for studies related to the evolution of 
 
 This fixed engine code is an initial modification made for a personal project. The floating-point types were hardcoded to double, and the code itself might feel a bit rough around the edges. Nevertheless, it operates flawlessly and is safe to use as-is.
 
-## 1. Enhancing Numerical Precision and Mathematical Stability (Precision & Math)
+## Change List
+
+### 1. Enhancing Numerical Precision and Mathematical Stability (Precision & Math)
 
 To reduce accumulating rounding errors during physical computations and improve overall accuracy, the fundamental data types and arithmetic logic across the system have been upgraded.
 
@@ -19,14 +21,14 @@ To reduce accumulating rounding errors during physical computations and improve 
     *   In `Vec3D.h`, the `RotX`, `RotY`, and `RotZ` methods were optimized to cache `sin` and `cos` values as local variables to avoid redundant calculations.
     *   In `Quat3D.h`, the `RotateVec3D` method was rewritten using an optimized Rodrigues' rotation formula leveraging vector cross products (`v + (t * w) + q_vec.Cross(t)`) instead of heavy matrix multiplications, significantly improving computation speed.
 
-## 2. Preventing Memory False Sharing
+### 2. Preventing Memory False Sharing
 
 Memory alignment techniques were introduced to prevent CPU cache line invalidation (false sharing), which occurs when multiple threads update adjacent objects in memory simultaneously in a multi-threaded environment.
 
 *   **Forced Class Memory Alignment:** The `alignas(64)` attribute was applied to the declarations of core physical simulation objects, including `CVoxelyze`, `CVX_Collision`, `CVX_External`, `CVX_Link`, `CVX_Material`, and `CVX_Voxel`.
 *   **Dynamic Allocation Optimization:** The `new`, `delete`, `new[]`, and `delete[]` operators were overloaded within these classes. By using `_aligned_malloc(size, 64)` and `_aligned_free` instead of the standard `malloc`, the starting memory address of instantiated objects is forced to be a multiple of the L1 cache line size (64 bytes), thereby blocking memory interference between threads.
 
-## 3. Resolving Non-Deterministic Operations (3-Phase Update)
+### 3. Resolving Non-Deterministic Operations (3-Phase Update)
 
 The critical error where simulation results varied every time due to read-write data races during OpenMP multi-threading execution has been structurally resolved.
 
@@ -37,7 +39,7 @@ The critical error where simulation results varied every time due to read-write 
     3.  `linksList[i]->finalUpdateForces()`: Calculates the final force and stress based on synchronized data (Read-only).
 *   This clear separation guarantees 100% identical and deterministic simulation results regardless of thread scheduling environments.
 
-## 4. Introduction of Nested Parallelism and Core Allocation (`Voxelyze_Nested.cpp`)
+### 4. Introduction of Nested Parallelism and Core Allocation (`Voxelyze_Nested.cpp`)
 
 To simultaneously evaluate dozens of voxel robots in algorithms like neuroevolution, a new nested parallelism architecture was added, parallelizing both the outer loop (number of robots) and the inner loop (physics engine updates).
 
@@ -45,11 +47,11 @@ To simultaneously evaluate dozens of voxel robots in algorithms like neuroevolut
 *   **Deadlock Prevention (Team-wide Execution):** Previously, collision processing used `#pragma omp single` so that only the master thread executed it, which could cause deadlocks in nested environments. In the new code, the condition is evaluated using `#pragma omp single copyprivate`, and then all threads in the inner parallel team simultaneously enter `updateCollisions_Nested()` to share the workload safely.
 *   **Windows Processor Group Thread Binding (Thread Affinity):** For systems with 64 or more threads (e.g., AMD Threadripper 3990X), an issue where cores remain underutilized due to Windows OS processor group divisions was addressed. The `PinToGroupIfNeeded()` function, which calls the `SetThreadGroupAffinity` API, was implemented to explicitly bind threads to specific CPU groups, maximizing hardware resource utilization.
 
-## 5. Data Access Optimization and Feature Expansion
+### 5. Data Access Optimization and Feature Expansion
 
 *   **Removing `Array3D.h` Access Overhead:** The structure that constantly checked boundaries for safety inside `operator[]` and `operator()` was modified. For non-debug builds (when `#ifdef _DEBUG` is false), it now calls `getIndexFast()` to access memory directly, eliminating severe data retrieval bottlenecks.
 *   **Permanent Preservation of Voxel Position Data (`VX_Voxel.h/cpp`):** Variables `originPos` and `originOrient`, along with methods `Set_OriginPos()` and `original_Orient()`, were added to remember the voxel's initial position and orientation. Previously, `originalPosition()` calculated the position mathematically every time it was called, but it now simply returns the cached `originPos`. Additionally, a backdoor method `Set_Pos_Direct()` was introduced to manually control voxel positions from external wrappers.
 *   **Multi-thread Control Flags:** Variables `num_thread`, `is_thread`, and `is_nested` were added inside `Voxelyze.h`, providing a clean interface to dynamically control thread usage and thread count at runtime from external modules (like a DLL wrapper).
 
-#### Modified Dec 2025, Published Aug 2026 by Yoonsik Shim (Y.S.Shim, NeuronomicoN)
-Department of Software Engineering, Pai Chai University, Daejeon, South Korea.
+▶ Modified Dec 2025, Published Aug 2026 by Yoonsik Shim (Y.S.Shim, NeuronomicoN)
+    Department of Software Engineering, Pai Chai University, Daejeon, South Korea.
