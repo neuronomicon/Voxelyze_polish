@@ -1,7 +1,9 @@
 # [Voxelyze Engine]: OpenMP Inconsistency Fix & Large-Thread Optimization
 
-This repository is a forked and modified version of the original [Voxelyze Engine](https://github.com/jonhiller/Voxelyze). 
+This repository is a forked and modified version of the original [Voxelyze Engine](https://github.com/jonhiller/Voxelyze)
 All original credits and copyrights belong to Jonathan Hiller and contributors.
+
+**Modified and maintained by Y.S.Shim(NeuonomicoN)**
 
 ### Key Modifications in this Fork
 * **OpenMP Inconsistency Fix:** Resolved non-deterministic behavior when using OpenMP by implementing a 3-Phase Update architecture.
@@ -16,8 +18,6 @@ The Fixed version represents a major overhaul of the original engine, focusing o
 
 ### $\color{orange}{\text{▶ Inconsistency problem exists in OMP Multithreaded Simulation}}$
 Many researchers widely use this engine for studies related to the evolution of voxel-based robots. For these applications, it is an absolute requirement that identical voxel parameters starting from the same initial conditions produce the exact same simulation progress. Although researchers might have already been aware of this problem, to the best of my knowledge, I have not seen this issue of OpenMP inconsistency raised anywhere online or in existing literature up to this point. However, in the original version of the Voxelyze engine, enabling OpenMP introduced non-deterministic behavior, causing simulation values to fluctuate across runs despite identical starting conditions. This fixed version successfully identifies the root cause of this inconsistency and restructures the underlying code. As a result, the engine now guarantees perfectly deterministic and identical simulation outcomes, even with OpenMP fully active.
-
-This fixed engine code is an initial modification made for a personal project. The floating-point types were hardcoded to double, and the code itself might feel a bit rough around the edges. Nevertheless, it operates flawlessly and is safe to use as-is.
 
 ## Change List
 
