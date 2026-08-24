@@ -52,9 +52,9 @@ The critical error where simulation results varied every time due to read-write 
 
 *   **Function Splitting and State Preservation:** The massive `updateForces()` function in the original `VX_Link.cpp` was split into two separate functions: `preUpdateGeometry()` and `finalUpdateForces()`. Furthermore, to prevent the loss of velocity information required for damping calculations, member variables `Vec3D<> dPos2, dAngle1, dAngle2;` were added to `VX_Link.h` to cache intermediate values.
 *   **Applying Implicit Barriers via Loop Separation:** In `Voxelyze.cpp`, the operations handled by a single parallel loop in `doTimeStep()` were separated into three distinct phases:
-    1.  `linksList[i]->preUpdateGeometry()`: Updates the geometric information of each link (Write-only).
-    2.  `voxelsList[i]->poissonsStrain()`: Synchronizes the Poisson's strain cache for voxels (No collision).
-    3.  `linksList[i]->finalUpdateForces()`: Calculates the final force and stress based on synchronized data (Read-only).
+    1. Updates the geometric information of each link (Write-only).
+    2. Synchronizes the Poisson's strain cache for voxels (No collision).
+    3. Calculates the final force and stress based on synchronized data (Read-only).
 *   This clear separation guarantees 100% identical and deterministic simulation results regardless of thread scheduling environments.
 
 ### 4. Introduction of Nested Parallelism and Core Allocation (`Voxelyze_Nested.cpp`)
