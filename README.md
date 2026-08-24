@@ -1,4 +1,4 @@
-# Voxelyze Engine OpenMP Inconsistency Fix & Large-Thread Optimization
+# [Voxelyze Engine]: OpenMP Inconsistency Fix & Large-Thread Optimization
 
 The Fixed version represents a major overhaul of the original engine, focusing on three core improvements: **1) resolving non-deterministic arithmetic issues (Inconsistency)**, **2) enhancing the physical precision of the engine**, and **3) optimizing performance and eliminating cache bottlenecks in multi-core/multi-threaded environments**. Additionally, it includes **critical fixes for thread group management when using OpenMP with large thread counts (64 or more threads, e.g., AMD Threadripper 3990X and above) in a Windows environment.**
 
