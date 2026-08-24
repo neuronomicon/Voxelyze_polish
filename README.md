@@ -2,6 +2,8 @@
 
 The Fixed version represents a major overhaul of the original engine, focusing on three core improvements: **1) resolving non-deterministic arithmetic issues (Inconsistency)**, **2) enhancing the physical precision of the engine**, and **3) optimizing performance and eliminating cache bottlenecks in multi-core/multi-threaded environments**. Additionally, it includes **critical fixes for thread group management when using OpenMP with large thread counts (64 or more threads, e.g., AMD Threadripper 3990X and above) in a Windows environment.**
 
+Many researchers widely use this engine for studies related to the evolution of voxel-based robots. For these applications, it is an absolute requirement that identical voxel parameters starting from the same initial conditions produce the exact same simulation progress. Although researchers might have already been aware of this problem, to the best of my knowledge, I have not seen this issue of OpenMP inconsistency raised anywhere online or in existing literature up to this point. However, in the original version of the Voxelyze engine, enabling OpenMP introduced non-deterministic behavior, causing simulation values to fluctuate across runs despite identical starting conditions. This fixed version successfully identifies the root cause of this inconsistency and restructures the underlying code. As a result, the engine now guarantees perfectly deterministic and identical simulation outcomes, even with OpenMP fully active.
+
 ## 1. Enhancing Numerical Precision and Mathematical Stability (Precision & Math)
 
 To reduce accumulating rounding errors during physical computations and improve overall accuracy, the fundamental data types and arithmetic logic across the system have been upgraded.
