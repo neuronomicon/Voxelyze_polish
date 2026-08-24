@@ -46,5 +46,5 @@ To simultaneously evaluate dozens of voxel robots in algorithms like neuroevolut
 *   **Permanent Preservation of Voxel Position Data (`VX_Voxel.h/cpp`):** Variables `originPos` and `originOrient`, along with methods `Set_OriginPos()` and `original_Orient()`, were added to remember the voxel's initial position and orientation. Previously, `originalPosition()` calculated the position mathematically every time it was called, but it now simply returns the cached `originPos`. Additionally, a backdoor method `Set_Pos_Direct()` was introduced to manually control voxel positions from external wrappers.
 *   **Multi-thread Control Flags:** Variables `num_thread`, `is_thread`, and `is_nested` were added inside `Voxelyze.h`, providing a clean interface to dynamically control thread usage and thread count at runtime from external modules (like a DLL wrapper).
 
-#### Modified Aug 2026 by Yoonsik Shim.
+#### Modified Dec 2025, Published Aug 2026 by Yoonsik Shim (Y.S.Shim, NeuronomicoN)
 Department of Software Engineering, Pai Chai University, Daejeon, South Korea.
