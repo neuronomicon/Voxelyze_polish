@@ -3,7 +3,7 @@
 This repository is a forked and modified version of the original [Voxelyze Engine](https://github.com/jonhiller/Voxelyze)
 All original credits and copyrights belong to Jonathan Hiller and contributors.
 
-**Modified and maintained by Y.S.Shim(NeuonomicoN)**
+**Modified and maintained by [Y.S.Shim](https://github.com/neuronomicon)**
 
 ### Key Modifications in this Fork
 * **OpenMP Inconsistency Fix:** Resolved non-deterministic behavior when using OpenMP by implementing a 3-Phase Update architecture.
