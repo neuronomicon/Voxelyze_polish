@@ -19,11 +19,6 @@ The Fixed version represents a major overhaul of the original engine, focusing o
 ### $\color{orange}{\text{▶ Inconsistency Problem in the Original OpenMP Multi-threaded Simulation}}$
 Many researchers widely use this engine for studies related to the evolution of voxel-based robots. For these applications, it is an absolute requirement that identical voxel parameters starting from the same initial conditions produce the exact same simulation progress. Although researchers might have already been aware of this problem, to the best of my knowledge, I have not seen this issue of OpenMP inconsistency raised anywhere online or in existing literature up to this point. However, in the original version of the Voxelyze engine, enabling OpenMP introduced non-deterministic behavior, causing simulation values to fluctuate across runs despite identical starting conditions (using \#define USE_OMP). This fixed version successfully identifies the root cause of this inconsistency and restructures the underlying code. As a result, the engine now guarantees perfectly deterministic and identical simulation outcomes, even with OpenMP fully active.
 
-### **Unchanged Files (Omitted from this patch)**
-The following files remain identical to the original version and are therefore not included in this repository:
-* `VX_Utils.h`
-* `VX_MeshRender.h`
-* `VX_MeshRender.cpp`
 
 ## Change List
 
