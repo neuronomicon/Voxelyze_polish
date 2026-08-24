@@ -1,6 +1,6 @@
 # [Voxelyze Engine]: OpenMP Inconsistency Fix & Large-Thread Optimization
 
-This repository is a forked and modified version of the original [Voxelyze Engine]([원본 깃허브 링크](https://github.com/jonhiller/Voxelyze)). 
+This repository is a forked and modified version of the original [Voxelyze Engine](https://github.com/jonhiller/Voxelyze). 
 All original credits and copyrights belong to Jonathan Hiller and contributors.
 
 ### Key Modifications in this Fork
