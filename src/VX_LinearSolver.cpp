@@ -108,7 +108,7 @@ bool CVX_LinearSolver::solve() //formulates and solves system!
 
 	if (!Success) return false;
 
-	updateProgress(0.9f, "Processing results...");
+	updateProgress(0.9, "Processing results...");
 	postResults();
 	return true;
 }
@@ -155,7 +155,7 @@ void CVX_LinearSolver::calculateA() //calculates the big stiffness matrix!
 			}
 		
 			//off-diagonal block(s)
-			int nI2 = i2List.size(); //number of other voxels connected to this one
+			int nI2 = (int)i2List.size(); //number of other voxels connected to this one
 			for (int m=0; m<nI2; m++){
 				for (int k=0; k<3; k++)	ja[jACounter++] = 6*i2List[m]+blockOff[j][k];
 			}
@@ -181,15 +181,15 @@ void CVX_LinearSolver::calculateA() //calculates the big stiffness matrix!
 
 			//diagonals:
 			if (j<3){
-				float diagValD = (ax==j) ? pL->a1() : pL->b1(); //diagonals on the diagonal block
-				float diagValO = -diagValD; //diagonals on the off-diagonal block
+				double diagValD = (ax==j) ? pL->a1() : pL->b1(); //diagonals on the diagonal block
+				double diagValO = -diagValD; //diagonals on the off-diagonal block
 				addAValue(row1, row1, diagValD);
 				addAValue(row1, row2, diagValO);
 				addAValue(row2, row2, diagValD);
 			}
 			else {
-				float diagValD = (ax==j%3) ? pL->a2() : 2*pL->b3(); //diagonals on the diagonal block
-				float diagValO = (ax==j%3) ? -pL->a2() : pL->b3(); //diagonals on the off-diagonal block
+				double diagValD = (ax==j%3) ? pL->a2() : 2*pL->b3(); //diagonals on the diagonal block
+				double diagValO = (ax==j%3) ? -pL->a2() : pL->b3(); //diagonals on the off-diagonal block
 				addAValue(row1, row1, diagValD);
 				addAValue(row1, row2, diagValO);
 				addAValue(row2, row2, diagValD);
@@ -198,7 +198,7 @@ void CVX_LinearSolver::calculateA() //calculates the big stiffness matrix!
 
 		//off-diagonals:
 		int R1, C1, R2, C2;
-		float val;
+		double val;
 		switch (ax){
 			case 0: //X_AXIS
 				R1 = 1; C1 = 5;
@@ -233,7 +233,7 @@ void CVX_LinearSolver::calculateA() //calculates the big stiffness matrix!
 }
 
 
-void CVX_LinearSolver::addAValue(int row, int column, float value) //after ia and ja are populated, set a value in the a matrix. Row and Column are 0-based!
+void CVX_LinearSolver::addAValue(int row, int column, double value) //after ia and ja are populated, set a value in the a matrix. Row and Column are 0-based!
 {
 	int curInd = ia[row];
 	int endInd = ia[row+1]; //still 1-based ia and ja
@@ -281,10 +281,10 @@ void CVX_LinearSolver::applyBX() //Assumes 0-based indices
 		bool hasExternal = pVox->externalExists();
 		Vec3D<double> position(pVox->displacement());
 		Vec3D<double> angle = (pVox->orientation().w == 1) ? Vec3D<double>(0,0,0) : pVox->orientation().ToRotationVector();
-		Vec3D<float> force(hasExternal ? pVox->external()->force() : Vec3D<float>());
-		Vec3D<float> moment(hasExternal ? pVox->external()->moment() : Vec3D<float>());
-//		Vec3D<float> force(pVox->externalForce());
-//		Vec3D<float> moment(pVox->externalMoment());
+		Vec3D<double> force(hasExternal ? pVox->external()->force() : Vec3D<double>());
+		Vec3D<double> moment(hasExternal ? pVox->external()->moment() : Vec3D<double>());
+//		Vec3D<double> force(pVox->externalForce());
+//		Vec3D<double> moment(pVox->externalMoment());
 		
 		for (int j=0; j<6; j++){
 			int thisDof = 6*i+j;

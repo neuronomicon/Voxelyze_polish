@@ -13,7 +13,7 @@ See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 #include <assert.h>
 
 
-CVX_MaterialVoxel::CVX_MaterialVoxel(float youngsModulus, float density, double nominalSize) : CVX_Material(youngsModulus, density)
+CVX_MaterialVoxel::CVX_MaterialVoxel(double youngsModulus, double density, double nominalSize) : CVX_Material(youngsModulus, density)
 {
 	initialize(nominalSize);
 }
@@ -31,7 +31,7 @@ CVX_MaterialVoxel::CVX_MaterialVoxel(const CVX_Material& mat, double nominalSize
 void CVX_MaterialVoxel::initialize(double nominalSize)
 {
 	nomSize = nominalSize;
-	gravMult = 0.0f;
+	gravMult = 0.0;
 	updateDerived();
 }
 
@@ -59,21 +59,21 @@ bool CVX_MaterialVoxel::updateDerived()
 	CVX_Material::updateDerived(); //update base CVX_Material class derived variables
 
 	double volume = nomSize*nomSize*nomSize;
-	_mass = (float)(volume*rho); 
-	_momentInertia = (float)(_mass*nomSize*nomSize / 6.0f); //simple 1D approx
-	_firstMoment = (float)(_mass*nomSize / 2.0f);
+	_mass = (double)(volume*rho); 
+	_momentInertia = (double)(_mass*nomSize*nomSize / 6.0); //simple 1D approx
+	_firstMoment = (double)(_mass*nomSize / 2.0);
 
 	if (volume==0 || _mass==0 || _momentInertia==0){
-		_massInverse = _sqrtMass = _momentInertiaInverse = _2xSqMxExS = _2xSqIxExSxSxS = 0.0f; //zero everything out
+		_massInverse = _sqrtMass = _momentInertiaInverse = _2xSqMxExS = _2xSqIxExSxSxS = 0.0; //zero everything out
 		return false;
 	}
 
 
-	_massInverse = 1.0f / _mass;
+	_massInverse = 1.0 / _mass;
 	_sqrtMass = sqrt(_mass);
-	_momentInertiaInverse = 1.0f / _momentInertia;
-	_2xSqMxExS = (float)(2.0f*sqrt(_mass*E*nomSize));
-	_2xSqIxExSxSxS = (float)(2.0f*sqrt(_momentInertia*E*nomSize*nomSize*nomSize));
+	_momentInertiaInverse = 1.0 / _momentInertia;
+	_2xSqMxExS = (double)(2.0*sqrt(_mass*E*nomSize));
+	_2xSqIxExSxSxS = (double)(2.0*sqrt(_momentInertia*E*nomSize*nomSize*nomSize));
 
 	return true;
 }

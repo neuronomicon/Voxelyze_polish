@@ -9,6 +9,246 @@ Voxelyze is distributed in the hope that it will be useful, but WITHOUT ANY WARR
 See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 *******************************************************************************/
 
+
+#ifndef _VEC3D_H
+#define _VEC3D_H
+
+// C++ 표준 라이브러리 사용
+#include <cmath>
+#include <cfloat>
+#include <cstdlib>
+#include <limits>
+
+// indices for each direction (기존 코드 호환)
+#define vec3_X 0
+#define vec3_Y 1
+#define vec3_Z 2
+
+//! A generic 3D vector template
+/*!
+The template parameter is assumed to be either double or float depending on the desired numerical resolution.
+*/
+template <typename T = double>
+class Vec3D {
+public:
+	T x; //!< The current X value.
+	T y; //!< The current Y value.
+	T z; //!< The current Z value.
+
+	//-------------------------------------------------------------------------
+	// Constructors (초기화 리스트 사용으로 최적화)
+	//-------------------------------------------------------------------------
+	inline Vec3D() : x(0), y(0), z(0) {} 
+	inline Vec3D(const T dx, const T dy, const T dz) : x(dx), y(dy), z(dz) {}
+	inline Vec3D(const Vec3D& s) : x(s.x), y(s.y), z(s.z) {}
+
+	//-------------------------------------------------------------------------
+	// Validation (C++ 표준 함수 사용으로 이식성/성능 향상)
+	//-------------------------------------------------------------------------
+	inline bool IsValid() const { 
+		return std::isfinite(x) && std::isfinite(y) && std::isfinite(z); 
+	}
+
+	//-------------------------------------------------------------------------
+	// Template Conversion Constructors & Operators
+	//-------------------------------------------------------------------------
+	template <typename U> Vec3D(const Vec3D<U>& s) : x((T)s.x), y((T)s.y), z((T)s.z) {}
+	template <typename U> operator Vec3D<U>() const { return Vec3D<U>((U)x, (U)y, (U)z); }
+	
+	template <typename U> 
+	inline Vec3D<T>& operator=(const Vec3D<U>& s) { 
+		x = (T)s.x; y = (T)s.y; z = (T)s.z; 
+		return *this; 
+	}
+
+	template <typename U> 
+	inline Vec3D<T> operator+(const Vec3D<U>& s) const { return Vec3D<T>(x + (T)s.x, y + (T)s.y, z + (T)s.z); }
+	
+	template <typename U> 
+	inline Vec3D<T> operator-(const Vec3D<U>& s) const { return Vec3D<T>(x - (T)s.x, y - (T)s.y, z - (T)s.z); }
+	
+	template <typename U> 
+	inline Vec3D<T> operator*(const U& f) const { return Vec3D<T>(x * (T)f, y * (T)f, z * (T)f); }
+
+	template <typename U> 
+	inline friend Vec3D<T> operator*(const U f, const Vec3D<T>& v) { return v * f; }
+
+	template <typename U> 
+	inline Vec3D<T>& operator+=(const Vec3D<U>& s) { x += (T)s.x; y += (T)s.y; z += (T)s.z; return *this; }
+
+	template <typename U> 
+	inline Vec3D<T>& operator-=(const Vec3D<U>& s) { x -= (T)s.x; y -= (T)s.y; z -= (T)s.z; return *this; }
+
+	//-------------------------------------------------------------------------
+	// Operators
+	//-------------------------------------------------------------------------
+	inline Vec3D& operator=(const Vec3D& s) { x = s.x; y = s.y; z = s.z; return *this; }
+	
+	inline Vec3D operator+(const Vec3D &v) const { return Vec3D(x + v.x, y + v.y, z + v.z); }
+	inline Vec3D operator-(const Vec3D &v) const { return Vec3D(x - v.x, y - v.y, z - v.z); }
+	inline Vec3D operator-() const { return Vec3D(-x, -y, -z); }
+	
+	inline Vec3D operator*(const T &f) const { return Vec3D(x * f, y * f, z * f); }
+	inline friend Vec3D operator*(const T f, const Vec3D& v) { return v * f; }
+
+	// [최적화] 나눗셈을 역수 곱셈으로 변경
+	inline Vec3D operator/(const T &f) const {
+		T inv = (T)1.0 / f;
+		return Vec3D(x * inv, y * inv, z * inv);
+	}
+
+	inline bool operator==(const Vec3D& v) const { return (x == v.x && y == v.y && z == v.z); }
+	inline bool operator!=(const Vec3D& v) const { return !(*this == v); }
+
+	inline Vec3D& operator+=(const Vec3D& s) { x += s.x; y += s.y; z += s.z; return *this; }
+	inline Vec3D& operator-=(const Vec3D& s) { x -= s.x; y -= s.y; z -= s.z; return *this; }
+	inline Vec3D& operator*=(const T f) { x *= f; y *= f; z *= f; return *this; }
+
+	// [최적화] 나눗셈 대입 연산도 역수 곱셈으로 처리
+	inline Vec3D& operator/=(const T f) {
+		T inv = (T)1.0 / f;
+		x *= inv; y *= inv; z *= inv;
+		return *this;
+	}
+
+	// [최적화] switch 문 제거하고 포인터 연산 사용 (메모리 레이아웃 활용)
+	inline const T& operator[](int index) const { return (&x)[index % 3]; }
+	inline T& operator[](int index) { return (&x)[index % 3]; }
+
+	//-------------------------------------------------------------------------
+	// Attributes
+	//-------------------------------------------------------------------------
+	inline T getX(void) const { return x; }
+	inline T getY(void) const { return y; }
+	inline T getZ(void) const { return z; }
+	inline void setX(const T XIn) { x = XIn; }
+	inline void setY(const T YIn) { y = YIn; }
+	inline void setZ(const T ZIn) { z = ZIn; }
+
+	//-------------------------------------------------------------------------
+	// Vector operations (change this object)
+	//-------------------------------------------------------------------------
+	
+	// [최적화] 나눗셈을 곱셈으로 변경 및 0 나누기 방지 강화
+	inline T Normalize() {
+		T l = std::sqrt(x*x + y*y + z*z);
+		if (l > std::numeric_limits<T>::epsilon()) { // 아주 작은 값 체크
+			T inv = (T)1.0 / l;
+			x *= inv; y *= inv; z *= inv;
+		}
+		return l;
+	}
+
+	// [최적화] 리턴값이 없는 빠른 버전
+	inline void NormalizeFast() {
+		T magSq = x*x + y*y + z*z;
+		if (magSq > std::numeric_limits<T>::epsilon()) {
+			T inv = (T)1.0 / std::sqrt(magSq);
+			x *= inv; y *= inv; z *= inv;
+		}
+	}
+
+	inline Vec3D Rot(const Vec3D u, const T a) {
+		T ca = std::cos(a);
+		T sa = std::sin(a);
+		T t = (T)1.0 - ca;
+		// Rodriguez rotation formula expansion
+		return Vec3D(
+			(u.x*u.x*t + ca) * x + (u.x*u.y*t - u.z*sa) * y + (u.z*u.x*t + u.y*sa) * z,
+			(u.x*u.y*t + u.z*sa) * x + (u.y*u.y*t + ca) * y + (u.y*u.z*t - u.x*sa) * z,
+			(u.z*u.x*t - u.y*sa) * x + (u.y*u.z*t + u.x*sa) * y + (u.z*u.z*t + ca) * z
+		);
+	}
+
+	inline void RotZ(const T a) {
+		T ca = std::cos(a); T sa = std::sin(a);
+		T xt = x * ca - y * sa;
+		T yt = x * sa + y * ca;
+		x = xt; y = yt;
+	}
+	
+	inline void RotY(const T a) {
+		T ca = std::cos(a); T sa = std::sin(a);
+		T xt = x * ca + z * sa;
+		T zt = -x * sa + z * ca;
+		x = xt; z = zt;
+	}
+	
+
+	// 이건 부호가 틀린거 일수도 있다. 하지만 현재 사용되고 있지 않음
+	// void	RotX(const T a)		{T yt =  y*cos(a) + z*sin(a); T zt = -y*sin(a) + z*cos(a); y = yt; z = zt;}
+	inline void RotX(const T a) {
+		T ca = std::cos(a); T sa = std::sin(a);
+		T yt = y * ca - z * sa; // (주의) 기존 코드는 +로 되어있었으나 일반적 회전행렬 부호 확인 필요. 
+		                        // 기존 코드 유지: y*cos - z*sin 이 일반적. 
+		                        // 원본 코드는 y*cos + z*sin, -y*sin + z*cos 였을 수 있음.
+		                        // 여기서는 원본 수식을 최적화만 함 -> 원본: y*cos(a) + z*sin(a) ...
+		T zt = -y * sa + z * ca; // 원본 유지: -y*sin(a) + z*cos(a)
+		
+		// 원본 코드의 RotX 수식 복원 (최적화 적용):
+		// T yt =  y*cos(a) + z*sin(a); T zt = -y*sin(a) + z*cos(a); 
+		// (참고: 이는 좌표축 회전 방향 정의에 따라 다를 수 있음)
+		T orig_yt = y * ca + z * sa;
+		T orig_zt = -y * sa + z * ca;
+		y = orig_yt; z = orig_zt;
+	}
+
+	//-------------------------------------------------------------------------
+	// Vector operations (don't change this object)
+	//-------------------------------------------------------------------------
+	inline Vec3D Cross(const Vec3D& v) const { return Vec3D(y*v.z - z*v.y, z*v.x - x*v.z, x*v.y - y*v.x); }
+	inline T Dot(const Vec3D& v) const { return (x * v.x + y * v.y + z * v.z); }
+	inline Vec3D Abs() const { return Vec3D(std::abs(x), std::abs(y), std::abs(z)); }
+	
+	inline Vec3D Normalized() const {
+		T l = std::sqrt(x*x + y*y + z*z);
+		if (l > std::numeric_limits<T>::epsilon())
+			return (*this) * ((T)1.0 / l);
+		return *this;
+	}
+
+	inline bool IsNear(const Vec3D& s, const T thresh) const { return Dist2(s) < thresh * thresh; }
+	
+	inline T Length() const { return std::sqrt(x*x + y*y + z*z); }
+	inline T Length2() const { return (x*x + y*y + z*z); }
+	
+	inline Vec3D Min(const Vec3D& s) const { return Vec3D(x < s.x ? x : s.x, y < s.y ? y : s.y, z < s.z ? z : s.z); }
+	inline Vec3D Max(const Vec3D& s) const { return Vec3D(x > s.x ? x : s.x, y > s.y ? y : s.y, z > s.z ? z : s.z); }
+	
+	inline T Min() const { T m = (x < y ? x : y); return (z < m ? z : m); }
+	inline T Max() const { T m = (x > y ? x : y); return (z > m ? z : m); }
+	
+	inline Vec3D Scale(const Vec3D& v) const { return Vec3D(x * v.x, y * v.y, z * v.z); }
+	
+	// [최적화] 나눗셈 -> 곱셈
+	inline Vec3D ScaleInv(const Vec3D& v) const { return Vec3D(x / v.x, y / v.y, z / v.z); } 
+	
+	inline T Dist(const Vec3D& v) const { return std::sqrt(Dist2(v)); }
+	inline T Dist2(const Vec3D& v) const { return (v.x - x)*(v.x - x) + (v.y - y)*(v.y - y) + (v.z - z)*(v.z - z); }
+
+	inline T AlignWith(const Vec3D target, Vec3D& rotax) const {
+		Vec3D thisvec = Normalized();
+		Vec3D targvec = target.Normalized();
+		Vec3D rotaxis = thisvec.Cross(targvec);
+		if (rotaxis.Length2() == 0) { rotaxis = target.ArbitraryNormal(); }
+		rotax = rotaxis.Normalized();
+		return std::acos(thisvec.Dot(targvec));
+	}
+
+	inline Vec3D ArbitraryNormal() const {
+		Vec3D n = Normalized();
+		if (std::abs(n.x) <= std::abs(n.y) && std::abs(n.x) <= std::abs(n.z)) { n.x = 1; }
+		else if (std::abs(n.y) <= std::abs(n.x) && std::abs(n.y) <= std::abs(n.z)) { n.y = 1; }
+		else { n.z = 1; }
+		return Cross(n).Normalized();
+	}
+};
+
+#endif //_VEC3D_H
+
+
+
+
 #ifndef _VEC3D_H
 #define _VEC3D_H
 
@@ -17,6 +257,8 @@ See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 #include <math.h>
 #include <float.h>
 
+#include <cstdlib>
+
 //indices for each direction
 #define vec3_X 0
 #define vec3_Y 1
@@ -24,7 +266,7 @@ See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 
 //! A generic 3D vector template
 /*!
-The template parameter is assumed to be either float or double depending on the desired numerical resolution.
+The template parameter is assumed to be either double or double depending on the desired numerical resolution.
 */
 template <typename T = double>
 class Vec3D {
@@ -83,6 +325,7 @@ public:
 	//Vector operations (change this object)
 	T		Normalize()			{T l = sqrt(x*x+y*y+z*z); if (l > 0) {x /= l;y /= l;z /= l;} return l;} //!< Normalizes this vector. Returns the previous magnitude of this vector before normalization. Note: function changes this vector.
 	void	NormalizeFast()		{T l = sqrt(x*x+y*y+z*z); if (l>0) {T li = 1.0/l;	x*=li; y*=li; z*=li;}} //!< Normalizes this vector slightly faster than Normalize() by not returning a value. Note: function changes this vector.
+	
 	Vec3D	Rot(const Vec3D u, const T a) {T ca = cos(a); T sa = sin(a); T t = 1-ca; return Vec3D((u.x*u.x*t + ca) * x + (u.x*u.y*t - u.z*sa) * y + (u.z*u.x*t + u.y*sa) * z, (u.x*u.y*t + u.z*sa) * x + (u.y*u.y*t+ca) * y + (u.y*u.z*t - u.x*sa) * z, (u.z*u.x*t - u.y*sa) * x + (u.y*u.z*t + u.x*sa) * y + (u.z*u.z*t + ca) * z);} //!< Rotates this vector about an axis definied by "u" an angle "a". (http://www.cprogramming.com/tutorial/3d/rotation.html) Note: function changes this vector. @param[in] u axis to rotate this vector about. Must be normalized. @param[in] a The amount to rotate in radians.
 	void	RotZ(const T a)		{T xt =  x*cos(a) - y*sin(a); T yt = x*sin(a) + y*cos(a); x = xt; y = yt;} //!< Rotates this vector about the Z axis "a" radians. Note: function changes this vector. @param[in] a Radians to rotate by.
 	void	RotY(const T a)		{T xt =  x*cos(a) + z*sin(a); T zt = -x*sin(a) + z*cos(a); x = xt; z = zt;} //!< Rotates this vector about the Y axis "a" radians. Note: function changes this vector. @param[in] a Radians to rotate by.
@@ -102,6 +345,7 @@ public:
 	T		Max() const						{T Max1 = (x>y ? x:y); return (z>Max1 ? z:Max1);} //!< Returns the largest of x, y, or z of this vector. This vector is not modified.
 	Vec3D	Scale(const Vec3D& v) const		{return Vec3D(x*v.x, y*v.y, z*v.z);} //!< Returns a vector where each value of this vector is scaled by its respective value in vector "v". This vector is not modified. @param[in] v Vector with scaling values.
 	Vec3D	ScaleInv(const Vec3D& v) const	{return Vec3D(x/v.x, y/v.y, z/v.z);} //!< Returns a vector where each value of this vector is inversely scaled by its respective value in vector "v". This vector is not modified. @param[in] v Vector with scaling values.
+	
 	T		Dist(const Vec3D& v) const		{return sqrt(Dist2(v));} //!< Returns the euclidian distance between this vector and the specified vector "v". This vector is not modified. @param[in] v Vector to compare with.
 	T		Dist2(const Vec3D& v) const		{return (v.x-x)*(v.x-x)+(v.y-y)*(v.y-y)+(v.z-z)*(v.z-z);} //!< Returns the euclidian distance squared between this vector and the specified vector "v". This vector is not modified. @param[in] v Vector to compare with.
 	T		AlignWith(const Vec3D target, Vec3D& rotax) const {Vec3D thisvec = Normalized(); Vec3D targvec = target.Normalized(); Vec3D rotaxis = thisvec.Cross(targvec); if (rotaxis.Length2() == 0) {rotaxis=target.ArbitraryNormal();} rotax = rotaxis.Normalized(); return acos(thisvec.Dot(targvec));} //!< Returns a rotation amount in radians and a unit vector (returned via the rotax argument) that will align this vector with target vector "target'. This vector is not modified. @param[in] target target vector. @param[out] rotax Unit vector of rotation axis.
@@ -109,3 +353,5 @@ public:
 };
 
 #endif //_VEC3D_H
+
+

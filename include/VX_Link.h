@@ -30,8 +30,16 @@ The force and moment for either voxel can be queried, as well as the current axi
 
 Information pertaining to one voxel or the other is indicated by the boolean parameter "positiveEnd". If positiveEnd is true, information will be returned for the voxel with the most positive coordinate in the original (undeformed) lattice.
 */
-class CVX_Link {
-	public:
+class alignas(64) CVX_Link 
+{
+public:
+
+		// 2. 메모리 할당 연산자 오버로딩 추가 (public 섹션 어디든)
+    void* operator new(size_t size)   { return _aligned_malloc(size, 64); }
+    void  operator delete(void* p)    { _aligned_free(p);                 }
+    void* operator new[](size_t size) { return _aligned_malloc(size, 64); }
+    void  operator delete[](void* p)  { _aligned_free(p);                 }
+
 
 	//! Defines an axis (X, Y, or Z)
 	enum linkAxis {			
@@ -49,21 +57,34 @@ class CVX_Link {
 	Vec3D<> moment(bool positiveEnd) const {return positiveEnd?momentPos:momentNeg;} //!< Returns the current moment acting on a voxel due to the position and orientation of the other. @param[in] positiveEnd Specifies which voxel information is desired about.
 
 
-	float axialStrain() const {return strain;} //!< returns the current overall axial strain (unitless) between the two voxels.
-	float axialStrain(bool positiveEnd) const; //!< Returns the current calculated axial strain of the half of the link contained in the specified voxel. @param[in] positiveEnd Specifies which voxel information is desired about.
-	float axialStress() const {return _stress;} //!< returns the current overall true axial stress (MPa) between the two voxels.
+	double axialStrain() const {return strain;} //!< returns the current overall axial strain (unitless) between the two voxels.
+	double axialStrain(bool positiveEnd) const; //!< Returns the current calculated axial strain of the half of the link contained in the specified voxel. @param[in] positiveEnd Specifies which voxel information is desired about.
+	double axialStress() const {return _stress;} //!< returns the current overall true axial stress (MPa) between the two voxels.
 
 	bool isSmallAngle() const {return smallAngle;} //!< Returns true if this link is currently operating with a small angle assumption.
 	bool isYielded() const; //!< Returns true if the stress on this bond has ever exceeded its yield stress
 	bool isFailed() const; //!< Returns true if the stress on this bond has ever exceeded its failure stress
 
-	float strainEnergy() const; //!< Calculates and return the strain energy of this link according to current forces and moments. (units: Joules, or Kg m^2 / s^2)
-	float axialStiffness(); //!< Calculates and returns the current linear axial stiffness of this link at it's current strain.
-
+	double strainEnergy() const; //!< Calculates and return the strain energy of this link according to current forces and moments. (units: Joules, or Kg m^2 / s^2)
+	double axialStiffness(); //!< Calculates and returns the current linear axial stiffness of this link at it's current strain.
+	
 	void updateForces(); //!< Called every timestep to calculate the forces and moments acting between the two constituent voxels in their current relative positions and orientations.
 
 	void updateRestLength(); //!< Updates the rest length of this voxel. Call this every timestep where the nominal size of either voxel may have changed, due to actuation or thermal expansion.
 	void updateTransverseInfo(); //!< Updates information about this voxel pertaining to volumetric deformations. Call this every timestep if the poisson's ratio of the link material is non-zero.
+
+
+
+
+	// 2026-01-10: Shim-Gemini added function to separate updateForces() ////////////////////////////
+	// [추가] 3단계 업데이트를 위한 분리된 함수 선언
+	Vec3D<> dPos2, dAngle1, dAngle2;	
+    void preUpdateGeometry();       // 1단계: 위치, 변형률(Strain), 속도 갱신
+    void finalUpdateForces();       // 3단계: 응력(Stress) 및 힘(Force) 계산
+	/// /////////////////////////
+
+
+
 
 
 private:
@@ -71,9 +92,9 @@ private:
 	Vec3D<> forceNeg, forcePos;
 	Vec3D<> momentNeg, momentPos;
 
-	float strain;
-	float maxStrain, /*maxStrainRatio,*/ strainOffset; //keep track of the maximums for yield/fail/nonlinear materials (and the ratio of the maximum from 0 to 1 [all positive end strain to all negative end strain])
-	float updateStrain(float axialStrain); //updates strainNeg and strainPos according to the provided axial strain. returns current stress as well (MPa)
+	double strain;
+	double maxStrain, /*maxStrainRatio,*/ strainOffset; //keep track of the maximums for yield/fail/nonlinear materials (and the ratio of the maximum from 0 to 1 [all positive end strain to all negative end strain])
+	double updateStrain(double axialStrain); //updates strainNeg and strainPos according to the provided axial strain. returns current stress as well (MPa)
 
 	typedef int linkState;
 	enum linkFlags { //default of each should be zero for easy clearing
@@ -88,23 +109,23 @@ private:
 	linkAxis axis;
 
 	//beam parameters
-	float a1() const;
-	float a2() const;
-	float b1() const;
-	float b2() const;
-	float b3() const;
+	double a1() const;
+	double a2() const;
+	double b1() const;
+	double b2() const;
+	double b3() const;
 
 
 	CVX_MaterialLink* mat;
-	float strainRatio; //ration of Epos to Eneg (EPos/Eneg)
+	double strainRatio; //ration of Epos to Eneg (EPos/Eneg)
 
 	Vec3D<double> pos2, angle1v, angle2v; //pos1 is always = 0,0,0
 	Quat3D<double> angle1, angle2; //this bond in local coordinates. 
 	bool smallAngle; //based on compiled precision setting
 	double currentRestLength;
-	float currentTransverseArea, currentTransverseStrainSum; //so we don't have to re-calculate everytime
+	double currentTransverseArea, currentTransverseStrainSum; //so we don't have to re-calculate everytime
 
-	float _stress; //keep this around for convenience
+	double _stress; //keep this around for convenience
 
 	Quat3D<double> orientLink(/*double restLength*/); //updates pos2, angle1, angle2, and smallAngle. returns the rotation quaternion (after toAxisX) used to get to this orientation
 

@@ -12,7 +12,7 @@ See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 #include "VX_Material.h"
 #include <assert.h>
 
-CVX_Material::CVX_Material(float youngsModulus, float density)
+CVX_Material::CVX_Material(double youngsModulus, double density)
 {
 	clear();
 	rho = density;
@@ -57,14 +57,14 @@ void CVX_Material::clear()
 	g = -1;
 	b = -1;
 	a = -1;
-	nu = 0.0f;
-	rho = 1.0f;
-	alphaCTE = 0.0f;
-	muStatic = 0.0f;
-	muKinetic = 0.0f;
-	zetaInternal = 1.0f;
-	zetaGlobal = 0.0f;
-	zetaCollision = 0.0f;
+	nu = 0.0;
+	rho = 1.0;
+	alphaCTE = 0.0;
+	muStatic = 0.0;
+	muKinetic = 0.0;
+	zetaInternal = 1.0;
+	zetaGlobal = 0.0;
+	zetaCollision = 0.0;
 
 	extScale=Vec3D<>(1.0, 1.0, 1.0);
 
@@ -95,7 +95,7 @@ void CVX_Material::writeJSON(rapidjson::PrettyWriter<rapidjson::StringBuffer>& w
 	}
 
 
-	if (rho != 1.0f){			w.Key("density");			w.Double(rho);}
+	if (rho != 1.0){			w.Key("density");			w.Double(rho);}
 	if (myName != ""){			w.Key("name");				w.String(myName.c_str());}
 	if (r != -1){				w.Key("red");				w.Int(r);}
 	if (g != -1){				w.Key("green");				w.Int(g);}
@@ -123,18 +123,18 @@ bool CVX_Material::readJSON(rapidjson::Value& m)
 {
 	clear();
 	if (m.HasMember("youngsModulus") && m["youngsModulus"].IsDouble()){
-		float failStress = -1.0f;
+		double failStress = -1.0;
 		if (m.HasMember("epsilonFail") && m["epsilonFail"].IsDouble()){
 			failStress = m["epsilonFail"].GetDouble()*m["youngsModulus"].GetDouble();
 		}
 		setModelLinear(m["youngsModulus"].GetDouble(), failStress);
 	}
 	else if (m.HasMember("strainData") && m["strainData"].IsArray() && m.HasMember("stressData") && m["stressData"].IsArray() && m["strainData"].Size()==m["stressData"].Size()){
-		std::vector<float> stress, strain;
+		std::vector<double> stress, strain;
 		int dataCount = m["strainData"].Size();
 		for (int i=0; i<dataCount; i++){
-			stress.push_back((float)m["stressData"].GetDouble());
-			strain.push_back((float)m["strainData"].GetDouble());
+			stress.push_back((double)m["stressData"].GetDouble());
+			strain.push_back((double)m["strainData"].GetDouble());
 		}
 		setModel(dataCount, &strain[0], &stress[0]); 
 	}
@@ -162,14 +162,19 @@ bool CVX_Material::readJSON(rapidjson::Value& m)
 	return true;
 }
 
-float CVX_Material::stress(float strain, float transverseStrainSum, bool forceLinear)
+double CVX_Material::stress(double strain, double transverseStrainSum, bool forceLinear)
 {
 	//reference: http://www.colorado.edu/engineering/CAS/courses.d/Structures.d/IAST.Lect05.d/IAST.Lect05.pdf page 10
-	if (isFailed(strain)) return 0.0f; //if a failure point is set and exceeded, we've broken!
+	if (isFailed(strain)) return 0.0; //if a failure point is set and exceeded, we've broken!
 	
-	if (strain <= strainData[1] || linear || forceLinear){ //for compression/first segment and linear materials (forced or otherwise), simple calculation
-		if (nu==0.0f) return E*strain;
-		else return _eHat*((1-nu)*strain + nu*transverseStrainSum); 
+	if (strain <= strainData[1] || linear || forceLinear)
+	{ 
+		//for compression/first segment and linear materials (forced or otherwise), simple calculation
+		if (nu==0.0) 
+			return E*strain;
+		else 
+			return _eHat*((1-nu)*strain + nu*transverseStrainSum);
+
 //		else return eHat()*((1-nu)*strain + nu*transverseStrainSum); 
 	}
 
@@ -177,43 +182,43 @@ float CVX_Material::stress(float strain, float transverseStrainSum, bool forceLi
 	int DataCount = modelDataPoints();
 	for (int i=2; i<DataCount; i++){ //go through each segment in the material model (skipping the first segment because it has already been handled.
 		if (strain <= strainData[i] || i==DataCount-1){ //if in the segment ending with this point (or if this is the last point extrapolate out) 
-			float Perc = (strain-strainData[i-1])/(strainData[i]-strainData[i-1]);
-			float basicStress = stressData[i-1] + Perc*(stressData[i]-stressData[i-1]);
-			if (nu==0.0f) return basicStress;
+			double Perc = (strain-strainData[i-1])/(strainData[i]-strainData[i-1]);
+			double basicStress = stressData[i-1] + Perc*(stressData[i]-stressData[i-1]);
+			if (nu==0.0) return basicStress;
 			else { //accounting for volumetric effects
-				float modulus = (stressData[i]-stressData[i-1])/(strainData[i]-strainData[i-1]);
-				float modulusHat = modulus/((1-2*nu)*(1+nu));
-				float effectiveStrain = basicStress/modulus; //this is the strain at which a simple linear stress strain line would hit this point at the definied modulus
-				float effectiveTransverseStrainSum = transverseStrainSum*(effectiveStrain/strain);
+				double modulus = (stressData[i]-stressData[i-1])/(strainData[i]-strainData[i-1]);
+				double modulusHat = modulus/((1-2*nu)*(1+nu));
+				double effectiveStrain = basicStress/modulus; //this is the strain at which a simple linear stress strain line would hit this point at the definied modulus
+				double effectiveTransverseStrainSum = transverseStrainSum*(effectiveStrain/strain);
 				return modulusHat*((1-nu)*effectiveStrain + nu*effectiveTransverseStrainSum);
 			}
 		}
 	}
 
 	assert(false); //should never reach this point
-	return 0.0f;
+	return 0.0;
 }
 
-float CVX_Material::strain(float stress)
+double CVX_Material::strain(double stress)
 {
 	if (stress <= stressData[1] || linear) return stress/E; //for compression/first segment and linear materials (forced or otherwise), simple calculation
 
 	int DataCount = modelDataPoints();
 	for (int i=2; i<DataCount; i++){ //go through each segment in the material model (skipping the first segment because it has already been handled.
 		if (stress <= stressData[i] || i==DataCount-1){ //if in the segment ending with this point (or if this is the last point extrapolate out) 
-			float Perc = (stress-stressData[i-1])/(stressData[i]-stressData[i-1]);
+			double Perc = (stress-stressData[i-1])/(stressData[i]-stressData[i-1]);
 			return strainData[i-1] + Perc*(strainData[i]-strainData[i-1]);
 		}
 	}
 
 	assert(false); //should never reach this point
-	return 0.0f;
+	return 0.0;
 }
 
 
-float CVX_Material::modulus(float strain)
+double CVX_Material::modulus(double strain)
 {
-	if (isFailed(strain)) return 0.0f; //if a failure point is set and exceeded, we've broken!
+	if (isFailed(strain)) return 0.0; //if a failure point is set and exceeded, we've broken!
 	if (strain <= strainData[1] || linear) return E; //for compression/first segment and linear materials, simple calculation
 
 	int DataCount = modelDataPoints();
@@ -221,7 +226,7 @@ float CVX_Material::modulus(float strain)
 		if (strain <= strainData[i] || i==DataCount-1) return (stressData[i]-stressData[i-1])/(strainData[i]-strainData[i-1]); //if in the segment ending with this point
 	}
 	assert(false); //we should never reach this point in the function
-	return 0.0f;
+	return 0.0;
 
 }
 
@@ -280,7 +285,7 @@ Special cases:
 	- 2 data points (bilinear): Yield is taken as the first data point, failure at the second.
 
 */
-bool CVX_Material::setModel(int dataPointCount, float* pStrainValues, float* pStressValues)
+bool CVX_Material::setModel(int dataPointCount, double* pStrainValues, double* pStressValues)
 {
 	//Pre-checks
 	if (*pStrainValues==0 && *pStressValues==0) { //if first data point is 0,0, ignore it
@@ -298,14 +303,14 @@ bool CVX_Material::setModel(int dataPointCount, float* pStrainValues, float* pSt
 	}
 
 	//Copy the data into something more usable (and check for monotonically increasing)
-	std::vector<float> tmpStrainData;
-	std::vector<float> tmpStressData;
+	std::vector<double> tmpStrainData;
+	std::vector<double> tmpStressData;
 	tmpStrainData.push_back(0); //add in the zero data point (required always)
 	tmpStressData.push_back(0);
-	float sweepStrain = 0.0f, sweepStress = 0.0f;
+	double sweepStrain = 0.0, sweepStress = 0.0;
 	for (int i=0; i<dataPointCount; i++){
-		float thisStrain = *(pStrainValues+i); //grab the values
-		float thisStress = *(pStressValues+i);
+		double thisStrain = *(pStrainValues+i); //grab the values
+		double thisStress = *(pStressValues+i);
 
 		if (thisStrain <= sweepStrain){
 			error = "Out of order strain data";
@@ -352,20 +357,20 @@ bool CVX_Material::setModel(int dataPointCount, float* pStrainValues, float* pSt
 /*! Specified Young's modulus and failure stress must both be positive.
 Yield stress is interpreted as identical to failure stress. If failure stress is not specified an arbitrary data point consistent with the specified Young's modulus is added to the model.
 */
-bool CVX_Material::setModelLinear(float youngsModulus, float failureStress)
+bool CVX_Material::setModelLinear(double youngsModulus, double failureStress)
 {
 	if (youngsModulus<=0){
 		error = "Young's modulus must be positive";
 		return false;
 	}
-	if (failureStress != -1.0f && failureStress<=0){
+	if (failureStress != -1.0 && failureStress<=0){
 		error = "Failure stress must be positive";
 		return false;
 	}
 
-	float tmpfailureStress = failureStress; //create a dummy failure stress if none was provided
+	double tmpfailureStress = failureStress; //create a dummy failure stress if none was provided
 	if (tmpfailureStress == -1) tmpfailureStress = 1000000;
-	float tmpfailStrain = tmpfailureStress/youngsModulus;
+	double tmpfailStrain = tmpfailureStress/youngsModulus;
 
 	strainData.clear();
 	stressData.clear();
@@ -386,7 +391,7 @@ bool CVX_Material::setModelLinear(float youngsModulus, float failureStress)
 /*! Specified Young's modulus, plastic modulus, yield stress, and failure stress must all be positive.
 Plastic modulus must be less than Young's modulus and failure stress must be greater than the yield stress.
 */
-bool CVX_Material::setModelBilinear(float youngsModulus, float plasticModulus, float yieldStress, float failureStress)
+bool CVX_Material::setModelBilinear(double youngsModulus, double plasticModulus, double yieldStress, double failureStress)
 {
 	if (youngsModulus<=0){
 		error = "Young's modulus must be positive";
@@ -400,18 +405,18 @@ bool CVX_Material::setModelBilinear(float youngsModulus, float plasticModulus, f
 		error = "Yield stress must be positive";
 		return false;
 	}
-	if (failureStress != -1.0f && failureStress <= yieldStress){
+	if (failureStress != -1.0 && failureStress <= yieldStress){
 		error = "Failure stress must be positive and greater than the yield stress";
 		return false;
 	}
 
-	float yieldStrain = yieldStress / youngsModulus;
-	float tmpfailureStress = failureStress; //create a dummy failure stress if none was provided
+	double yieldStrain = yieldStress / youngsModulus;
+	double tmpfailureStress = failureStress; //create a dummy failure stress if none was provided
 	if (tmpfailureStress == -1) tmpfailureStress = 3*yieldStress;
 
-	float tM = plasticModulus;
-	float tB = yieldStress-tM*yieldStrain; //y-mx=b
-	float tmpfailStrain = (tmpfailureStress-tB)/tM; // (y-b)/m = x
+	double tM = plasticModulus;
+	double tB = yieldStress-tM*yieldStrain; //y-mx=b
+	double tmpfailStrain = (tmpfailureStress-tB)/tM; // (y-b)/m = x
 
 	strainData.clear();
 	strainData.push_back(0); //add in the zero data point (required always)
@@ -428,36 +433,36 @@ bool CVX_Material::setModelBilinear(float youngsModulus, float plasticModulus, f
 	sigmaYield = yieldStress;
 	sigmaFail = failureStress;
 	epsilonYield = yieldStrain;
-	epsilonFail = failureStress == -1.0f ? -1.0f : tmpfailStrain;
+	epsilonFail = failureStress == -1.0 ? -1.0 : tmpfailStrain;
 	return updateDerived();
 
 }
 
 
-bool CVX_Material::setYieldFromData(float percentStrainOffset)
+bool CVX_Material::setYieldFromData(double percentStrainOffset)
 {
-	sigmaYield = -1.0f; //assume we fail until we succeed.
-	epsilonYield = -1.0f; //assume we fail until we succeed.
+	sigmaYield = -1.0; //assume we fail until we succeed.
+	epsilonYield = -1.0; //assume we fail until we succeed.
 
-	float oM = E; //the offset line slope (y=Mx+B)
-	float oB = (-percentStrainOffset/100*oM); //offset line intercept (100 factor turns percent into absolute
+	double oM = E; //the offset line slope (y=Mx+B)
+	double oB = (-percentStrainOffset/100.0*oM); //offset line intercept (100 factor turns percent into absolute
 
 	assert(strainData.size() == stressData.size());
 	assert(strainData.size() > 2); // more than 2 data points (more than bilinear)
-	int dataPoints = strainData.size()-1;
+	int dataPoints = (int)strainData.size()-1;
 	for (int i=1; i<dataPoints-1; i++){
-		float x1=strainData[i];
-		float x2=strainData[i+1];
-		float y1=stressData[i];
-		float y2=stressData[i+1];
+		double x1=strainData[i];
+		double x2=strainData[i+1];
+		double y1=stressData[i];
+		double y2=stressData[i+1];
 
-		float tM = (y2-y1)/(x2-x1); //temporary slope
-		float tB = y1-tM*x1; //temporary intercept
+		double tM = (y2-y1)/(x2-x1); //temporary slope
+		double tB = y1-tM*x1; //temporary intercept
 
 		if (oM!=tM){ //if not parallel lines...
-			float xIntersect = (tB-oB)/(oM-tM);
+			double xIntersect = (tB-oB)/(oM-tM);
 			if (xIntersect>x1 && xIntersect<x2){ //if intersects at this segment...
-				float percentBetweenPoints = (xIntersect-x1)/(x2-x1);
+				double percentBetweenPoints = (xIntersect-x1)/(x2-x1);
 				sigmaYield = y1+percentBetweenPoints*(y2-y1);
 				epsilonYield = xIntersect;
 				return true;
@@ -469,46 +474,48 @@ bool CVX_Material::setYieldFromData(float percentStrainOffset)
 	return false;
 }
 
-void CVX_Material::setPoissonsRatio(float poissonsRatio)
+#define D_EPSILON	1.192092896e-07
+
+void CVX_Material::setPoissonsRatio(double poissonsRatio)
 {
 	if (poissonsRatio < 0) poissonsRatio = 0;
-	if (poissonsRatio >= 0.5 ) poissonsRatio = 0.5-FLT_EPSILON*2; //exactly 0.5 will still cause problems, but it can get very close.
+	if (poissonsRatio >= 0.5 ) poissonsRatio = 0.5-D_EPSILON*2.0; //exactly 0.5 will still cause problems, but it can get very close.
 	nu = poissonsRatio;
 	updateDerived();
 }
 
-void CVX_Material::setDensity(float density)
+void CVX_Material::setDensity(double density)
 {
 	if (density <= 0) density = FLT_MIN; //density of exactly 0 will cause problems, but can get as close as desired.
 	rho = density;
 	updateDerived();
 }
 
-void CVX_Material::setStaticFriction(float staticFrictionCoefficient)
+void CVX_Material::setStaticFriction(double staticFrictionCoefficient)
 {
 	if (staticFrictionCoefficient <= 0) staticFrictionCoefficient = 0;
 	muStatic = staticFrictionCoefficient;
 }
 
-void CVX_Material::setKineticFriction(float kineticFrictionCoefficient)
+void CVX_Material::setKineticFriction(double kineticFrictionCoefficient)
 {
 	if (kineticFrictionCoefficient <= 0) kineticFrictionCoefficient = 0;
 	muKinetic = kineticFrictionCoefficient;
 }
 
-void CVX_Material::setInternalDamping(float zeta)
+void CVX_Material::setInternalDamping(double zeta)
 {
 	if (zeta <= 0) zeta = 0;
 	zetaInternal = zeta;
 }
 
-void CVX_Material::setGlobalDamping(float zeta)
+void CVX_Material::setGlobalDamping(double zeta)
 {
 	if (zeta <= 0) zeta = 0;
 	zetaGlobal = zeta;
 }
 
-void CVX_Material::setCollisionDamping(float zeta)
+void CVX_Material::setCollisionDamping(double zeta)
 {
 	if (zeta <= 0) zeta = 0;
 	zetaCollision = zeta;
@@ -524,9 +531,10 @@ void CVX_Material::setExternalScaleFactor(Vec3D<double> factor)
 
 bool CVX_Material::updateDerived() 
 {
-	_eHat = E/((1-2*nu)*(1+nu));
+	_eHat = E/((1.0-2.0*nu)*(1.0+nu));
 
-	for (std::vector<CVX_Material*>::iterator it = dependentMaterials.begin(); it != dependentMaterials.end(); it++) (*it)->updateAll(); //update material properties of any that depend on this...
+	for (std::vector<CVX_Material*>::iterator it = dependentMaterials.begin(); it != dependentMaterials.end(); it++) 
+		(*it)->updateAll(); //update material properties of any that depend on this...
 
 	return true;
 }

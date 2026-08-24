@@ -37,6 +37,7 @@ Because solver execution time can be lengthy, a rudimentary set of status variab
 class CVX_LinearSolver
 {
 public:
+
 	CVX_LinearSolver(CVoxelyze* voxelyze); //!< Links to a voxelyze object and initializes the solver. The pointer to the voxelyze object must remain valid for the lifetime of this object. @param[in] voxelyze pointer to the voxelyze object to simulate.
 	bool solve(); //!< Formulates and solves the linear system and writes the resulting voxel positions and angles back to the linked voxelyze object. Returns false if the solver errors out. (check errorMsg for the reason). NOTE: calling this function modifies the state of the linked voxelyze object! This function may take a while if there are a large number of voxels.
 
@@ -63,14 +64,14 @@ private: //off limits variable and functions (internal)
 
 	//functions
 	void calculateA(); //calculates the a (stiffness) matrix!
-	void addAValue(int row, int column, float value);
+	void addAValue(int row, int column, double value);
 	void consolidateA(); //gets rid of all the zeros for solving!
 	void applyBX(); //apply forces and fixe boundary conditions
 	void convertTo1Base(); //convert to 1-based indices for pardiso:
 	void postResults(); //overwrites state of voxelyze object with the results
 	void OutputMatrices(); //for debugging small system only!!
 
-	void updateProgress(float percent, std::string message) {progressTick=(int)(percent*100), progressMsg = message;} //percent 0-1.0
+	void updateProgress(double percent, std::string message) {progressTick=(int)(percent*100), progressMsg = message;} //percent 0-1.0
 };
 
 //http://www.eng.fsu.edu/~chandra/courses/eml4536/Chapter4.ppt

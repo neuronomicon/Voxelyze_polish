@@ -16,7 +16,7 @@ See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 #include <float.h>
 #include "Vec3D.h"
 
-#define PI 3.14159265358979
+#define P_I 3.14159265358979
 #define DBL_EPSILONx24 5.328e-15 //DBL_EPSILON*24
 //#define DBL_EPSILON_SQ_x6xROOT2 4.17e-31 //DBL_EPSILON*DBL_EPSILON*6*sqrt(2.0)
 
@@ -25,7 +25,7 @@ See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 #define SMALL_ANGLE_RAD 1.732e-2 //Angles less than this get small angle approximations. To get: Root solve atan(t)/t-1+MAX_ERROR_PERCENT. From: MAX_ERROR_PERCENT = (t-atan(t))/t 
 #define SMALL_ANGLE_W 0.9999625 //quaternion W value corresponding to a SMALL_ANGLE_RAD. To calculate, cos(SMALL_ANGLE_RAD*0.5).
 #define W_THRESH_ACOS2SQRT 0.9988 //Threshhold of w above which we can approximate acos(w) with sqrt(2-2w). To get: Root solve 1-sqrt(2-2wt)/acos(wt) - MAX_ERROR_PERCENT. From MAX_ERROR_PERCENT = (acos(wt)-sqrt(2-2wt))/acos(wt)
-//#define SLTHRESH_DISCARD_ANGLE 1e-14; //SquareLength (x^2+y^2+z^2 comparison) threshhold for what constitutes a discard-small angle. From DISCARD_ANGLE_RAD ~= acos(w) and SquareLength also = 1-w*w. Must upcast to double or else truncated floats.
+//#define SLTHRESH_DISCARD_ANGLE 1e-14; //SquareLength (x^2+y^2+z^2 comparison) threshhold for what constitutes a discard-small angle. From DISCARD_ANGLE_RAD ~= acos(w) and SquareLength also = 1-w*w. Must upcast to double or else truncated doubles.
 #define SLTHRESH_ACOS2SQRT 2.4e-3 //SquareLength threshhold for when we can use square root optimization for acos. From SquareLength = 1-w*w. (calculate according to 1.0-W_THRESH_ACOS2SQRT*W_THRESH_ACOS2SQRT
 
 //quaternion properties (for reference)
@@ -37,7 +37,7 @@ See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 
 //! A generic 3D quaternion template
 /*!
-The template parameter is assumed to be either float or double depending on the desired numerical resolution.
+The template parameter is assumed to be either double or double depending on the desired numerical resolution.
 */
 template <typename T = double>
 class Quat3D {
@@ -61,7 +61,7 @@ public:
 		if (theta <= 0) {*this = Quat3D(1,0,0,0); return;} //very small angle, return no rotation
 		Vec3D<T> Axis = RotateFrom.Cross(RotateTo); //Axis of rotation
 		Axis.NormalizeFast();
-		if (theta > PI-DISCARD_ANGLE_RAD) {*this = Quat3D(Axis); return;} //180 degree rotation (180 degree rot about axis ax, ay, az is Quat(0,ax,ay,az))
+		if (theta > P_I-DISCARD_ANGLE_RAD) {*this = Quat3D(Axis); return;} //180 degree rotation (180 degree rot about axis ax, ay, az is Quat(0,ax,ay,az))
 		*this = Quat3D(theta, Axis); //otherwise for the quaternion from angle-axis. 
 	} //!< Constructs this quaternion to represent the rotation from two vectors. The vectors need not be normalized and are not modified. @param[in] RotateFrom A vector representing a pre-rotation orientation. @param[in] RotateTo A vector representing a post-rotation orientation.
 
@@ -155,7 +155,7 @@ public:
 		RotFromNorm.NormalizeFast(); //Normalize the input...
 
 		T theta = acos(RotFromNorm.x); //because RotFromNorm is normalized, 1,0,0 is normalized, and A.B = |A||B|cos(theta) = cos(theta)
-		if (theta > PI-DISCARD_ANGLE_RAD) {w=0; x=0; y=1; z=0; return;} //180 degree rotation (about y axis, since the vector must be pointing in -x direction
+		if (theta > P_I-DISCARD_ANGLE_RAD) {w=0; x=0; y=1; z=0; return;} //180 degree rotation (about y axis, since the vector must be pointing in -x direction
 
 		const T AxisMagInv = 1.0/sqrt(RotFromNorm.z*RotFromNorm.z+RotFromNorm.y*RotFromNorm.y);
 		//Here theta is the angle, axis is RotFromNorm.Cross(Vec3D(1,0,0)) = Vec3D(0, RotFromNorm.z/AxisMagInv, -RotFromNorm.y/AxisMagInv), which is still normalized. (super rolled together)
@@ -166,7 +166,7 @@ public:
 	} //!< Overwrites this quaternion with the calculated rotation that would transform the specified RotateFrom vector to point in the positve X direction. Note: function changes this quaternion.  @param[in] RotateFrom An arbitrary direction vector. Does not need to be normalized.
 
 
-
+	/*
 	const Vec3D<T> RotateVec3D(const Vec3D<T>& f) const { 
 		T fx=f.x, fy=f.y, fz=f.z;
 		T tw = fx*x + fy*y + fz*z;
@@ -184,6 +184,26 @@ public:
 		U tz = (U)(-fx*y + fy*x + fz*w);
 		return Vec3D<U>((U)(w*tx + x*tw + y*tz - z*ty), (U)(w*ty - x*tz + y*tw + z*tx), (U)(w*tz + x*ty - y*tx + z*tw));
 	} //!< Returns a vector representing the specified vector "f" rotated by this quaternion. Mixed template parameter version. @param[in] f The vector to transform.
+	*/
+
+	const Vec3D<T> RotateVec3D(const Vec3D<T>& v) const { 
+		// Optimized: v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v)
+		Vec3D<T> q_vec(x, y, z);
+		Vec3D<T> t = q_vec.Cross(v);
+		t += t; // t = 2 * cross(q.xyz, v)
+    
+		Vec3D<T> result = v + (t * w) + q_vec.Cross(t);
+		return result;
+	} 
+
+	template <typename U> const Vec3D<U> RotateVec3D(const Vec3D<U>& f) const {
+		// 템플릿 버전도 동일한 로직 적용 (타입 캐스팅 주의)
+		Vec3D<U> q_vec((U)x, (U)y, (U)z);
+		Vec3D<U> t = q_vec.Cross(f);
+		t = t * (U)2.0; 
+		return f + (t * (U)w) + q_vec.Cross(t);
+	}
+
 
 	const Vec3D<T> RotateVec3DInv(const Vec3D<T>& f) const { 
 		T fx=f.x, fy=f.y, fz=f.z;

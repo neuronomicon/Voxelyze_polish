@@ -36,9 +36,16 @@ inline dofObject dof(bool tx, bool ty, bool tz, bool rx, bool ry, bool rz) {dofO
 /*!
 dof = degree(s) of freedom (three translational, three rotational = 6 total)
 */
-class CVX_External
+class alignas(64) CVX_External
 {
 public:
+	// 2. 메모리 할당 연산자 오버로딩 추가 (public 섹션 어디든)
+    void* operator new(size_t size)   { return _aligned_malloc(size, 64); }
+    void  operator delete(void* p)    { _aligned_free(p);                 }
+    void* operator new[](size_t size) { return _aligned_malloc(size, 64); }
+    void  operator delete[](void* p)  { _aligned_free(p);                 }
+
+
 	CVX_External();
 	~CVX_External(); //!<destructor
 	CVX_External(const CVX_External& eIn) {*this = eIn;} //!< Copy constructor
@@ -46,7 +53,7 @@ public:
 	inline bool operator==(const CVX_External& b) {return dofFixed==b.dofFixed && extForce==b.extForce && extMoment==b.extMoment && extTranslation==b.extTranslation && extRotation==b.extRotation;} //!< comparison operator
 
 	void reset(); //!< Resets this external to defaults - i.e., no effect on a voxel  (forces, fixed, displacements, etc) 
-	bool isEmpty() {return (dofFixed == 0 && extForce==Vec3D<float>() && extMoment==Vec3D<float>());} //!< returns true if this external is empty - i.e is exerting no effect on a voxel
+	bool isEmpty() {return (dofFixed == 0 && extForce==Vec3D<double>() && extMoment==Vec3D<double>());} //!< returns true if this external is empty - i.e is exerting no effect on a voxel
 
 	bool isFixed(dofComponent dof) const {return dofIsSet(dofFixed, dof);}  //!< Returns true if the specified degree of freedom is fixed for this voxel. @param[in] dof Degree of freedom to query according to the dofComponent enum.
 	bool isFixedAll() const {return dofIsAllSet(dofFixed);} //!< Returns true if all 6 degrees of freedom are fixed for this voxel.
@@ -72,27 +79,27 @@ public:
 	void clearDisplacement(dofComponent dof); //!< Clears any prescribed displacement from this degree of freedom and unfixes it, too. @param[in] dof the degree of freedom in question.
 	void clearDisplacementAll(); //!< Clears all prescribed displacement from this voxel and completely unfixes it, too.
 
-	Vec3D<float> force() const {return extForce;} //!< Returns the current applied external force in newtons.
-	Vec3D<float> moment() const {return extMoment;} //!< Returns the current applied external moment in N-m.
+	Vec3D<double> force() const {return extForce;} //!< Returns the current applied external force in newtons.
+	Vec3D<double> moment() const {return extMoment;} //!< Returns the current applied external moment in N-m.
 
-	void setForce(const float xForce, const float yForce, const float zForce) {extForce = Vec3D<float>(xForce, yForce, zForce);} //!< Applies forces to this voxel in the global coordinate system. Has no effect in any fixed degrees of freedom. @param xForce Force in the X direction in newtons.  @param yForce Force in the Y direction in newtons.  @param zForce Force in the Z direction in newtons. 
-	void setForce(const Vec3D<float>& force) {extForce = force;} //!< Convenience function for setExternalForce(float, float, float).
-	void setMoment(const float xMoment, const float yMoment, const float zMoment) {extMoment = Vec3D<float>(xMoment, yMoment, zMoment);}  //!< Applies moments to this voxel in the global coordinate system. All rotations according to the right-hand rule. Has no effect in any fixed degrees of freedom. @param xMoment Moment in the X axis rotation in newton-meters. @param yMoment Moment in the Y axis rotation in newton-meters. @param zMoment Moment in the Z axis rotation in newton-meters. 
-	void setMoment(const Vec3D<float>& moment) {extMoment = moment;} //!< Convenience function for setExternalMoment(float, float, float).
+	void setForce(const double xForce, const double yForce, const double zForce) {extForce = Vec3D<double>(xForce, yForce, zForce);} //!< Applies forces to this voxel in the global coordinate system. Has no effect in any fixed degrees of freedom. @param xForce Force in the X direction in newtons.  @param yForce Force in the Y direction in newtons.  @param zForce Force in the Z direction in newtons. 
+	void setForce(const Vec3D<double>& force) {extForce = force;} //!< Convenience function for setExternalForce(double, double, double).
+	void setMoment(const double xMoment, const double yMoment, const double zMoment) {extMoment = Vec3D<double>(xMoment, yMoment, zMoment);}  //!< Applies moments to this voxel in the global coordinate system. All rotations according to the right-hand rule. Has no effect in any fixed degrees of freedom. @param xMoment Moment in the X axis rotation in newton-meters. @param yMoment Moment in the Y axis rotation in newton-meters. @param zMoment Moment in the Z axis rotation in newton-meters. 
+	void setMoment(const Vec3D<double>& moment) {extMoment = moment;} //!< Convenience function for setExternalMoment(double, double, double).
 
-	void addForce(const float xForce, const float yForce, const float zForce) {extForce += Vec3D<float>(xForce, yForce, zForce);} //!< Applies forces to this voxel in the global coordinate system. Has no effect in any fixed degrees of freedom. @param xForce Force in the X direction in newtons.  @param yForce Force in the Y direction in newtons.  @param zForce Force in the Z direction in newtons. 
-	void addForce(const Vec3D<float>& force) {extForce += force;} //!< Convenience function for setExternalForce(float, float, float).
-	void addMoment(const float xMoment, const float yMoment, const float zMoment) {extMoment += Vec3D<float>(xMoment, yMoment, zMoment);}  //!< Applies moments to this voxel in the global coordinate system. All rotations according to the right-hand rule. Has no effect in any fixed degrees of freedom. @param xMoment Moment in the X axis rotation in newton-meters. @param yMoment Moment in the Y axis rotation in newton-meters. @param zMoment Moment in the Z axis rotation in newton-meters. 
-	void addMoment(const Vec3D<float>& moment) {extMoment += moment;} //!< Convenience function for setExternalMoment(float, float, float).
+	void addForce(const double xForce, const double yForce, const double zForce) {extForce += Vec3D<double>(xForce, yForce, zForce);} //!< Applies forces to this voxel in the global coordinate system. Has no effect in any fixed degrees of freedom. @param xForce Force in the X direction in newtons.  @param yForce Force in the Y direction in newtons.  @param zForce Force in the Z direction in newtons. 
+	void addForce(const Vec3D<double>& force) {extForce += force;} //!< Convenience function for setExternalForce(double, double, double).
+	void addMoment(const double xMoment, const double yMoment, const double zMoment) {extMoment += Vec3D<double>(xMoment, yMoment, zMoment);}  //!< Applies moments to this voxel in the global coordinate system. All rotations according to the right-hand rule. Has no effect in any fixed degrees of freedom. @param xMoment Moment in the X axis rotation in newton-meters. @param yMoment Moment in the Y axis rotation in newton-meters. @param zMoment Moment in the Z axis rotation in newton-meters. 
+	void addMoment(const Vec3D<double>& moment) {extMoment += moment;} //!< Convenience function for setExternalMoment(double, double, double).
 
-	void clearForce(){extForce = Vec3D<float>();} //!< Clears all applied forces from this voxel.
-	void clearMoment(){extMoment = Vec3D<float>();} //!< Clears all applied moments from this voxel.
+	void clearForce(){extForce = Vec3D<double>();} //!< Clears all applied forces from this voxel.
+	void clearMoment(){extMoment = Vec3D<double>();} //!< Clears all applied moments from this voxel.
 	
 	
 private:
 	dofObject dofFixed;
 	
-	Vec3D<float> extForce, extMoment; //External force, moment applied to these voxels (N, N-m) if relevant DOF are unfixed
+	Vec3D<double> extForce, extMoment; //External force, moment applied to these voxels (N, N-m) if relevant DOF are unfixed
 	Vec3D<double> extTranslation, extRotation;
 	Quat3D<double>* _extRotationQ; //cached quaternion rotation (pointer to only create if needed)
 

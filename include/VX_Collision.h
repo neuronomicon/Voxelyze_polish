@@ -22,26 +22,34 @@ Voxels are assumed to have spherical collision boundaries with a radius of CVX_C
 
 updateContactForce() is called to calculate the repelling force. This force is retreived by calling contactForce() with an appropriate voxel pointer to return the force (in the global coordinate system) acting on that voxel as a result of this (potential) collision.
 */
-class CVX_Collision
+class alignas(64) CVX_Collision
 {
 public:
+
+	// 2. 메모리 할당 연산자 오버로딩 추가 (public 섹션 어디든)
+    void* operator new(size_t size)   { return _aligned_malloc(size, 64); }
+    void  operator delete(void* p)    { _aligned_free(p);                 }
+    void* operator new[](size_t size) { return _aligned_malloc(size, 64); }
+    void  operator delete[](void* p)  { _aligned_free(p);                 }
+
+
 	CVX_Collision(CVX_Voxel* v1, CVX_Voxel* v2); //!< Constructor taking the two voxels to watch for collision between. The order is irrelevant. @param[in] v1 One voxel @param[in] v2 The other voxel
 	CVX_Collision& operator=(const CVX_Collision& col); //!< Overload "=" operator.
 	CVX_Collision(const CVX_Collision& col) {*this = col;} //!< copy constructor.
 
-	Vec3D<float> const contactForce(CVX_Voxel* pVoxel); //!< Returns the repelling force acting on pVoxel from the penetration of the other voxel if their collision boundaries overlap. Otherwise returns a zero force. This force will only be accurate if updateContactForce() has been called since the voxels last moved. @param[in] pVoxel The voxel in question. This should be voxel1() or voxel2() to have any meaning. Otherwise a zero force is returned.
+	Vec3D<double> const contactForce(CVX_Voxel* pVoxel); //!< Returns the repelling force acting on pVoxel from the penetration of the other voxel if their collision boundaries overlap. Otherwise returns a zero force. This force will only be accurate if updateContactForce() has been called since the voxels last moved. @param[in] pVoxel The voxel in question. This should be voxel1() or voxel2() to have any meaning. Otherwise a zero force is returned.
 	void updateContactForce(); //!< Updates the state this collision based on the current positions and properties of voxel1() and voxel2(). Call contactForce() with either voxel as the argument to obtain the repelling penetration force (if any) that exisits.
 
 	CVX_Voxel* voxel1() const {return pV1;} //!<One voxel of this potential collision pair.
 	CVX_Voxel* voxel2() const {return pV2;} //!<The other voxel of this potential collision pair.
 
-	static float envelopeRadius; //!<The collision envelope radius that these two voxels collide at. Even though voxels are cubic, a spherical collision envelope is used for computation efficiency. Values are multiplied by the length of an edge of the voxel to determine the actual collision radius. Values less than 0.5 or greater than 0.866 are probably of limited use. Prefer around 0.625 (default).
+	static double envelopeRadius; //!<The collision envelope radius that these two voxels collide at. Even though voxels are cubic, a spherical collision envelope is used for computation efficiency. Values are multiplied by the length of an edge of the voxel to determine the actual collision radius. Values less than 0.5 or greater than 0.866 are probably of limited use. Prefer around 0.625 (default).
 
 private:
 	CVX_Voxel *pV1, *pV2;
-	float penetrationStiff; //in N/m for these two voxels
-	float dampingC; //damping factor for these two voxels
-	Vec3D<float> force;
+	double penetrationStiff; //in N/m for these two voxels
+	double dampingC; //damping factor for these two voxels
+	Vec3D<double> force;
 };
 
 #endif //VX_COLLISION_H

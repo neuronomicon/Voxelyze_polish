@@ -55,7 +55,7 @@ Memory allocation is managed internally and totally abstracted from the user. Wh
 The value of an element can be accesed with [], (), or at(). Empty elements (or elements outside the allocated area) are synonomous with the element being defaultValue.
 
 */
-template <typename T = float>
+template <typename T = double>
 class CArray3D
 {
 public:
@@ -85,11 +85,52 @@ public:
 		return *this;
 	}
 
+	
   	const T& operator [](const Index3D i3D) const   { return at(i3D);} //!< Operator "[]" overload (takes an Index3D) const version
 		  T& operator [](const Index3D i3D)			{ return at(i3D);}  //!< Operator "[]" overload (takes an Index3D)
 
 	const T& operator ()(int i, int j, int k) const {return at(Index3D(i, j, k));} //!< Operator "()" overloads (takes individual x, y, z indices) const verison
 		  T& operator ()(int i, int j, int k)		{return at(Index3D(i, j, k));} //!< Operator "()" overloads (takes individual x, y, z indices)
+	
+
+
+
+	// [수정] operator()와 operator[]를 최적화
+	// 디버그 모드가 아닐 때는 경계 검사를 수행하지 않는 getIndexFast를 사용하여 속도 비약적 향상
+/*
+	const T& operator [](const Index3D i3D) const {
+	#ifdef _DEBUG
+		return at(i3D);
+	#else
+		return data[getIndexFast(i3D.x, i3D.y, i3D.z)];
+	#endif
+	}
+
+	T& operator [](const Index3D i3D) {
+	#ifdef _DEBUG
+		return at(i3D);
+	#else
+		return data[getIndexFast(i3D.x, i3D.y, i3D.z)];
+	#endif
+	}
+
+	const T& operator ()(int i, int j, int k) const {
+	#ifdef _DEBUG
+		return at(Index3D(i, j, k));
+	#else
+		return data[getIndexFast(i, j, k)];
+	#endif
+	}
+
+	T& operator ()(int i, int j, int k) {
+	#ifdef _DEBUG
+		return at(Index3D(i, j, k));
+	#else
+		return data[getIndexFast(i, j, k)];
+	#endif
+	}
+*/
+
 
 	//!Clears all data from the array and frees up all memory.
 	void clear(){ 
@@ -101,7 +142,7 @@ public:
 
 	//!Sets the value to which all new allocations default to. @param[in] newDefaultValue the value returned from any index that has not been set otherwise.
 	void setDefaultValue(T newDefaultValue){
-		int linSize = data.size();
+		int linSize = (int)data.size();
 		for (int i=0; i<linSize; i++) if (data[i]==defaultValue) data[i] = newDefaultValue; //replace all old defaults with new default
 		defaultValue = newDefaultValue; //remember new default
 	}

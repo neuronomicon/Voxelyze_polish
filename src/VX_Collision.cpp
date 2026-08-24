@@ -12,14 +12,14 @@ See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 #include "VX_Collision.h"
 #include "VX_Voxel.h"
 
-float CVX_Collision::envelopeRadius = 0.625f;
+double CVX_Collision::envelopeRadius = 0.625;
 
 CVX_Collision::CVX_Collision(CVX_Voxel* v1, CVX_Voxel* v2)
 {
 	pV1 = v1;
 	pV2 = v2;
-	penetrationStiff = 2.0f/(1.0f/v1->material()->penetrationStiffness()+1.0f/pV2->material()->penetrationStiffness());
-	dampingC = 0.5f*(v1->material()->collisionDampingTranslateC() + v2->material()->collisionDampingTranslateC()); //average
+	penetrationStiff = 2.0/(1.0/v1->material()->penetrationStiffness()+1.0/pV2->material()->penetrationStiffness());
+	dampingC = 0.5*(v1->material()->collisionDampingTranslateC() + v2->material()->collisionDampingTranslateC()); //average
 }
 
 CVX_Collision& CVX_Collision::operator=(const CVX_Collision& col)
@@ -31,26 +31,26 @@ CVX_Collision& CVX_Collision::operator=(const CVX_Collision& col)
 	return *this;
 }
 
-Vec3D<float> const CVX_Collision::contactForce(CVX_Voxel* pVoxel)
+Vec3D<double> const CVX_Collision::contactForce(CVX_Voxel* pVoxel)
 {
 	if (pVoxel == pV1) return force;
 	else if (pVoxel == pV2) return -force;
-	else return Vec3D<float>(0,0,0);
+	else return Vec3D<double>(0,0,0);
 }
 
 
 void CVX_Collision::updateContactForce() 
 {
 	//just basic sphere envelope, repel with the stiffness of the material... (assumes UpdateConstants has been called)
-	Vec3D<float> offset = (Vec3D<float>)(pV2->position() - pV1->position());
-	float NomDist = (float)((pV1->baseSizeAverage() + pV2->baseSizeAverage())*envelopeRadius); //effective diameter of 1.5 voxels... (todo: remove length2!!
-	float RelDist = NomDist -offset.Length(); //negative for overlap!
+	Vec3D<double> offset = (Vec3D<double>)(pV2->position() - pV1->position());
+	double NomDist = (double)((pV1->baseSizeAverage() + pV2->baseSizeAverage())*envelopeRadius); //effective diameter of 1.5 voxels... (todo: remove length2!!
+	double RelDist = NomDist -offset.Length(); //negative for overlap!
 
 	if (RelDist > 0){
-		Vec3D<float> unit = offset.Normalized(); //unit vector from voxel 1 in the direction of voxel 2
-		float relativeVelocity = pV1->velocity().Dot((Vec3D<double>)unit) - pV2->velocity().Dot((Vec3D<double>)unit); //negative is moving towards each other
+		Vec3D<double> unit = offset.Normalized(); //unit vector from voxel 1 in the direction of voxel 2
+		double relativeVelocity = pV1->velocity().Dot((Vec3D<double>)unit) - pV2->velocity().Dot((Vec3D<double>)unit); //negative is moving towards each other
 
 		force = unit * (penetrationStiff * RelDist + dampingC*relativeVelocity); //kx + cV - if we're overlapping
 	}
-	else force = Vec3D<float>(0,0,0);
+	else force = Vec3D<double>(0,0,0);
 }

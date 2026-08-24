@@ -22,29 +22,32 @@ If the two input voxel materials are identical then this material is applied and
 If the materials are different a third material is carefully crafted from the two and beam constants precomputed.
 */
 
-class CVX_MaterialLink : public CVX_MaterialVoxel {
-	public:
+class CVX_MaterialLink : public CVX_MaterialVoxel 
+{
+public:
+	
 	CVX_MaterialLink(CVX_MaterialVoxel* mat1, CVX_MaterialVoxel* mat2); //!< Creates a link material from the two specified voxel materials. The order is unimportant. @param[in] mat1 voxel material on one side of the link. @param[in] mat2 voxel material on the other side of the link.
 	CVX_MaterialLink(const CVX_MaterialLink& VIn) {*this = VIn;} //!< Copy constructor
 	virtual CVX_MaterialLink& operator=(const CVX_MaterialLink& VIn); //!< Equals operator
 
 protected:
 	virtual bool updateAll(); //!< Updates and recalculates eveything possible (used by inherited classed when material properties have changed)
+	virtual bool updateAll_OLD();
 	virtual bool updateDerived(); //!< Updates all the derived quantities cached as member variables for this and derived classes. (Especially if density, size or elastic modulus changes.)
 
 	CVX_MaterialVoxel *vox1Mat; //!< Constituent material 1 from one voxel
 	CVX_MaterialVoxel *vox2Mat; //!< Constituent material 2 from the other voxel
 
-	float _a1; //!< Cached a1 beam constant.
-	float _a2; //!< Cached a2 beam constant.
-	float _b1; //!< Cached b1 beam constant.
-	float _b2; //!< Cached b2 beam constant.
-	float _b3; //!< Cached b3 beam constant.
-	float _sqA1; //!< Cached sqrt(a1) constant for damping calculations.
-	float _sqA2xIp; //!< Cached sqrt(a2*L*L/6) constant for damping calculations.
-	float _sqB1; //!< Cached sqrt(b1) constant for damping calculations.
-	float _sqB2xFMp; //!< Cached sqrt(b2*L/2) constant for damping calculations.
-	float _sqB3xIp; //!< Cached sqrt(b3*L*L/6) constant for damping calculations.
+	double _a1; //!< Cached a1 beam constant.
+	double _a2; //!< Cached a2 beam constant.
+	double _b1; //!< Cached b1 beam constant.
+	double _b2; //!< Cached b2 beam constant.
+	double _b3; //!< Cached b3 beam constant.
+	double _sqA1; //!< Cached sqrt(a1) constant for damping calculations.
+	double _sqA2xIp; //!< Cached sqrt(a2*L*L/6) constant for damping calculations.
+	double _sqB1; //!< Cached sqrt(b1) constant for damping calculations.
+	double _sqB2xFMp; //!< Cached sqrt(b2*L/2) constant for damping calculations.
+	double _sqB3xIp; //!< Cached sqrt(b3*L*L/6) constant for damping calculations.
 	
 	friend class CVoxelyze; //give the main simulation class full access
 	friend class CVX_Link; //give links direct access to parameters

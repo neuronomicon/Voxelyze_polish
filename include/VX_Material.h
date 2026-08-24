@@ -29,9 +29,18 @@ A physical material model may be specified as a series of true stress/strain dat
 If a function returns unsuccessfully, check lastError() for the cause.
 
 */
-class CVX_Material {
-	public:
-	CVX_Material(float youngsModulus=1e6f, float density=1e3f); //!< Default Constructor. @param[in] youngsModulus The Young's Modulus (stiffness) of this material in Pascals. @param[in] density The density of this material in Kg/m^3
+class alignas(64) CVX_Material 
+{
+public:
+
+	// 2. 메모리 할당 연산자 오버로딩 추가 (public 섹션 어디든)
+    void* operator new(size_t size)   { return _aligned_malloc(size, 64); }
+    void  operator delete(void* p)    { _aligned_free(p);                 }
+    void* operator new[](size_t size) { return _aligned_malloc(size, 64); }
+    void  operator delete[](void* p)  { _aligned_free(p);                 }
+
+
+	CVX_Material(double youngsModulus=1e6, double density=1e3); //!< Default Constructor. @param[in] youngsModulus The Young's Modulus (stiffness) of this material in Pascals. @param[in] density The density of this material in Kg/m^3
 	CVX_Material(rapidjson::Value& mat) {readJSON(mat);} //!< Constructs this CVX_Material object from a rapidjson parser node that contains valid "materials" sub-nodes. @param[in] mat pointer to a rapidjson Value that contains material information. See rapidjson documentation and the *.vxl.json format info in the voxelyze user guide.
 	virtual ~CVX_Material(void) {}; //!< Destructor. Specified as virtual so we can just keep track of generic material pointers for voxel and link materials.
 	CVX_Material(const CVX_Material& vIn) {*this = vIn;} //!< Copy constructor
@@ -43,10 +52,24 @@ class CVX_Material {
 	void setName(const char* name) {myName = std::string(name);} //!< Adds an optional name to the material. @param[in] name Desired name. 
 	const char* name() const {return myName.c_str();} //!< Returns the optional material name if one was specifed. Otherwise returns an empty string.
 
-	float stress(float strain, float transverseStrainSum=0.0f, bool forceLinear = false); //!<returns the stress of the material model accounting for volumetric strain effects. @param [in] strain The strain to query. The resulting stress in this direction will be returned. @param [in] transverseStrainSum The sum of the two principle normal strains in the plane perpendicular to strain. @param [in] forceLinear If true, the result will be calculated according to the elastic modulus of the material regardless of non-linearities in the model.
-	float modulus(float strain); //!<returns the modulus (slope of the stress/strain curve) of the material model at the specified strain. @param [in] strain The strain to query.
-	bool isYielded(float strain) {return epsilonYield != -1.0f && strain>epsilonYield;} //!< Returns true if the specified strain is past the yield point (if one is specified). @param [in] strain The strain to query.
-	bool isFailed(float strain) {return epsilonFail != -1.0f && strain>epsilonFail;} //!< Returns true if the specified strain is past the failure point (if one is specified). @param [in] strain The strain to query.
+	double stress(double strain, double transverseStrainSum=0.0, bool forceLinear = false); //!<returns the stress of the material model accounting for volumetric strain effects. @param [in] strain The strain to query. The resulting stress in this direction will be returned. @param [in] transverseStrainSum The sum of the two principle normal strains in the plane perpendicular to strain. @param [in] forceLinear If true, the result will be calculated according to the elastic modulus of the material regardless of non-linearities in the model.
+	double modulus(double strain); //!<returns the modulus (slope of the stress/strain curve) of the material model at the specified strain. @param [in] strain The strain to query.
+//	bool isYielded(double strain) {return epsilonYield != -1.0 && strain>epsilonYield;} //!< Returns true if the specified strain is past the yield point (if one is specified). @param [in] strain The strain to query.
+//	bool isFailed(double strain) {return epsilonFail != -1.0 && strain>epsilonFail;} //!< Returns true if the specified strain is past the failure point (if one is specified). @param [in] strain The strain to query.
+	
+	bool isYielded(double strain)
+	{
+		if( (epsilonYield+1.0) > 1E-14  &&  (strain-epsilonYield) > 1E-14 )	return true;
+		
+		return false;
+	}
+
+	bool isFailed(double strain) 
+	{
+		if( (epsilonFail+1.0) > 1E-14  &&  (strain-epsilonFail) > 1E-14 )	return true;
+		
+		return false;
+	}
 
 	//color
 	void setColor(int red, int green, int blue, int alpha=255); //!< Sets the material color. Values from [0,255]. @param [in] red Red channel @param [in] green Green channel @param [in] blue Blue channel @param [in] alpha Alpha channel
@@ -60,41 +83,47 @@ class CVX_Material {
 	int alpha() const {return a;} //!< Returns the alpha channel of the material color [0,255] or -1 if unspecified.
 
 	//Material Model
-	bool setModel(int dataPointCount, float* pStrainValues, float* pStressValues); //!< Defines the physical material behavior with a series of true stress/strain data points. @param [in] dataPointCount The expected number of data points. @param [in] pStrainValues pointer to the first strain value data point in a contiguous array (Units: Pa). @param [in] pStressValues pointer to the first stress value data point in a contiguous array (Units: Pa).
-	bool setModelLinear(float youngsModulus, float failureStress=-1); //!< Convenience function to quickly define a linear material. @param [in] youngsModulus Young's modulus (Units: Pa). @param [in] failureStress Optional failure stress (Units: Pa). -1 indicates failure is not an option.
-	bool setModelBilinear(float youngsModulus, float plasticModulus, float yieldStress, float failureStress=-1); //!< Convenience function to quickly define a bilinear material. @param [in] youngsModulus Young's modulus (Units: Pa). @param [in] plasticModulus Plastic modulus (Units: Pa). @param [in] yieldStress Yield stress. @param [in] failureStress Optional failure stress (Units: Pa). -1 indicates failure is not an option.
+	bool setModel(int dataPointCount, double* pStrainValues, double* pStressValues); //!< Defines the physical material behavior with a series of true stress/strain data points. @param [in] dataPointCount The expected number of data points. @param [in] pStrainValues pointer to the first strain value data point in a contiguous array (Units: Pa). @param [in] pStressValues pointer to the first stress value data point in a contiguous array (Units: Pa).
+	bool setModelLinear(double youngsModulus, double failureStress=-1); //!< Convenience function to quickly define a linear material. @param [in] youngsModulus Young's modulus (Units: Pa). @param [in] failureStress Optional failure stress (Units: Pa). -1 indicates failure is not an option.
+	bool setModelBilinear(double youngsModulus, double plasticModulus, double yieldStress, double failureStress=-1); //!< Convenience function to quickly define a bilinear material. @param [in] youngsModulus Young's modulus (Units: Pa). @param [in] plasticModulus Plastic modulus (Units: Pa). @param [in] yieldStress Yield stress. @param [in] failureStress Optional failure stress (Units: Pa). -1 indicates failure is not an option.
 	bool isModelLinear() const {return linear;} //!< Returns true if the material model is a simple linear behavior.
 	
-	float youngsModulus() const {return E;} //!< Returns Youngs modulus in Pa.
-	float yieldStress() const {return sigmaYield;} //!<Returns the yield stress in Pa or -1 if unspecified.
-	float failureStress() const {return sigmaFail;} //!<Returns the failure stress in Pa or -1 if unspecified.
-	int modelDataPoints() const {return strainData.size();} //!< Returns the number of data points in the current material model data arrays.
-	const float* modelDataStrain() const {return &strainData[0];} //!< Returns a pointer to the first strain value data point in a continuous array. The number of values can be determined from modelDataPoints(). The assumed first value of 0 is included.
-	const float* modelDataStress() const {return &stressData[0];} //!< Returns a pointer to the first stress value data point in a continuous array. The number of values can be determined from modelDataPoints(). The assumed first value of 0 is included.
+	double youngsModulus() const {return E;} //!< Returns Youngs modulus in Pa.
+	double yieldStress() const {return sigmaYield;} //!<Returns the yield stress in Pa or -1 if unspecified.
+	double failureStress() const {return sigmaFail;} //!<Returns the failure stress in Pa or -1 if unspecified.
+	int modelDataPoints() const {return (int)strainData.size();} //!< Returns the number of data points in the current material model data arrays.
+	const double* modelDataStrain() const {return &strainData[0];} //!< Returns a pointer to the first strain value data point in a continuous array. The number of values can be determined from modelDataPoints(). The assumed first value of 0 is included.
+	const double* modelDataStress() const {return &stressData[0];} //!< Returns a pointer to the first stress value data point in a continuous array. The number of values can be determined from modelDataPoints(). The assumed first value of 0 is included.
 
-	void setPoissonsRatio(float poissonsRatio); //!< Defines Poisson's ratio for the material. @param [in] poissonsRatio Desired Poisson's ratio [0, 0.5).
-	float poissonsRatio() const {return nu;} //!< Returns the current Poissons ratio
-	float bulkModulus() const {return E/(3*(1-2*nu));} //!< Calculates the bulk modulus from Young's modulus and Poisson's ratio.
-	float lamesFirstParameter() const {return (E*nu)/((1+nu)*(1-2*nu));} //!< Calculates Lame's first parameter from Young's modulus and Poisson's ratio.
-	float shearModulus() const {return E/(2*(1+nu));} //!< Calculates the shear modulus from Young's modulus and Poisson's ratio.
-	bool isXyzIndependent() const {return nu==0.0f;} //!< Returns true if poisson's ratio is zero - i.e. deformations in each dimension are independent of those in other dimensions.
+	void setPoissonsRatio(double poissonsRatio); //!< Defines Poisson's ratio for the material. @param [in] poissonsRatio Desired Poisson's ratio [0, 0.5).
+	double poissonsRatio() const {return nu;} //!< Returns the current Poissons ratio
+	double bulkModulus() const {return E/(3*(1-2*nu));} //!< Calculates the bulk modulus from Young's modulus and Poisson's ratio.
+	double lamesFirstParameter() const {return (E*nu)/((1+nu)*(1-2*nu));} //!< Calculates Lame's first parameter from Young's modulus and Poisson's ratio.
+	double shearModulus() const {return E/(2*(1+nu));} //!< Calculates the shear modulus from Young's modulus and Poisson's ratio.
+	
+//	bool isXyzIndependent() const {return nu==0.0;} //!< Returns true if poisson's ratio is zero - i.e. deformations in each dimension are independent of those in other dimensions.
+	bool isXyzIndependent() const
+	{
+		if( nu < 1E-14 )	return true;
+		else				return false;
+	}
 
 	//other material properties
-	void setDensity(float density); //!< Defines the density for the material in Kg/m^3. @param [in] density Desired density (0, INF)
-	float density() const {return rho;} //!< Returns the current density.
-	void setStaticFriction(float staticFrictionCoefficient); //!< Defines the coefficient of static friction. @param [in] staticFrictionCoefficient Coefficient of static friction [0, INF).
-	float staticFriction() const {return muStatic;} //!< Returns the current coefficient of static friction.
-	void setKineticFriction(float kineticFrictionCoefficient); //!< Defines the coefficient of kinetic friction. @param [in] kineticFrictionCoefficient Coefficient of kinetc friction [0, INF).
-	float kineticFriction() const {return muKinetic;} //!< Returns the current coefficient of kinetic friction.
+	void setDensity(double density); //!< Defines the density for the material in Kg/m^3. @param [in] density Desired density (0, INF)
+	double density() const {return rho;} //!< Returns the current density.
+	void setStaticFriction(double staticFrictionCoefficient); //!< Defines the coefficient of static friction. @param [in] staticFrictionCoefficient Coefficient of static friction [0, INF).
+	double staticFriction() const {return muStatic;} //!< Returns the current coefficient of static friction.
+	void setKineticFriction(double kineticFrictionCoefficient); //!< Defines the coefficient of kinetic friction. @param [in] kineticFrictionCoefficient Coefficient of kinetc friction [0, INF).
+	double kineticFriction() const {return muKinetic;} //!< Returns the current coefficient of kinetic friction.
 
 	//damping
 	//http://www.roush.com/Portals/1/Downloads/Articles/Insight.pdf
-	void setInternalDamping(float zeta); //!<Defines the internal material damping ratio. The effect is to damp out vibrations within a structure. zeta = mu/2 (mu = loss factor) = 1/(2Q) (Q = amplification factor). High values of zeta may lead to simulation instability. Recommended value: 1.0.  @param [in] zeta damping ratio [0, INF). (unitless)
-	float internalDamping() const {return zetaInternal;} //!< Returns the internal material damping ratio.
-	void setGlobalDamping(float zeta); //!<Defines the viscous damping of any voxels using this material relative to ground (no motion). Translation C (damping coefficient) is calculated according to zeta*2*sqrt(m*k) where k=E*nomSize. Rotational damping coefficient is similarly calculated High values relative to 1.0 may cause simulation instability. @param [in] zeta damping ratio [0, INF). (unitless)
-	float globalDamping() const {return zetaGlobal;} //!< Returns the global material damping ratio.
-	void setCollisionDamping(float zeta); //!<Defines the material damping ratio for when this material collides with something. This gives some control over the elasticity of a collision. A value of zero results in a completely elastic collision. @param [in] zeta damping ratio [0, INF). (unitless)
-	float collisionDamping() const {return zetaCollision;} //!< Returns the collision material damping ratio.
+	void setInternalDamping(double zeta); //!<Defines the internal material damping ratio. The effect is to damp out vibrations within a structure. zeta = mu/2 (mu = loss factor) = 1/(2Q) (Q = amplification factor). High values of zeta may lead to simulation instability. Recommended value: 1.0.  @param [in] zeta damping ratio [0, INF). (unitless)
+	double internalDamping() const {return zetaInternal;} //!< Returns the internal material damping ratio.
+	void setGlobalDamping(double zeta); //!<Defines the viscous damping of any voxels using this material relative to ground (no motion). Translation C (damping coefficient) is calculated according to zeta*2*sqrt(m*k) where k=E*nomSize. Rotational damping coefficient is similarly calculated High values relative to 1.0 may cause simulation instability. @param [in] zeta damping ratio [0, INF). (unitless)
+	double globalDamping() const {return zetaGlobal;} //!< Returns the global material damping ratio.
+	void setCollisionDamping(double zeta); //!<Defines the material damping ratio for when this material collides with something. This gives some control over the elasticity of a collision. A value of zero results in a completely elastic collision. @param [in] zeta damping ratio [0, INF). (unitless)
+	double collisionDamping() const {return zetaCollision;} //!< Returns the collision material damping ratio.
 
 
 	//size and scaling
@@ -103,8 +132,8 @@ class CVX_Material {
 	Vec3D<double> externalScaleFactor() {return extScale;} //!< Returns the current external scaling factor (unitless). See description of setExternalScaleFactor().
 
 	//thermal expansion
-	void setCte(float cte) {alphaCTE=cte;} //!< Defines the coefficient of thermal expansion. @param [in] cte Desired coefficient of thermal expansion per degree C (-INF, INF)
-	float cte() const {return alphaCTE;} //!< Returns the current coefficient of thermal expansion per degree C.
+	void setCte(double cte) {alphaCTE=cte;} //!< Defines the coefficient of thermal expansion. @param [in] cte Desired coefficient of thermal expansion per degree C (-INF, INF)
+	double cte() const {return alphaCTE;} //!< Returns the current coefficient of thermal expansion per degree C.
 
 protected:
 	std::string error; //!< The last error encountered
@@ -116,28 +145,28 @@ protected:
 
 	//material model
 	bool linear; //!< Set to true if this material is specified as linear.
-	float E; //!< Young's modulus (stiffness) in Pa.
-	float sigmaYield; //!< Yield stress in Pa.
-	float sigmaFail; //!< Failure stress in Pa
-	float epsilonYield; //!< Yield strain
-	float epsilonFail; //!< Failure strain
-	std::vector<float> strainData; //!< strain data points
-	std::vector<float> stressData; //!< stress data points
-	float nu; //!< Poissonss Ratio
-	float rho; //!< Density in Kg/m^3
-	float alphaCTE; //!< Coefficient of thermal expansion (CTE)
-	float muStatic; //!< Static coefficient of friction
-	float muKinetic; //!< Kinetic coefficient of friction
-	float zetaInternal; //!< Internal damping ratio
-	float zetaGlobal; //!< Global damping ratio
-	float zetaCollision; //!< Collision damping ratio
+	double E; //!< Young's modulus (stiffness) in Pa.
+	double sigmaYield; //!< Yield stress in Pa.
+	double sigmaFail; //!< Failure stress in Pa
+	double epsilonYield; //!< Yield strain
+	double epsilonFail; //!< Failure strain
+	std::vector<double> strainData; //!< strain data points
+	std::vector<double> stressData; //!< stress data points
+	double nu; //!< Poissonss Ratio
+	double rho; //!< Density in Kg/m^3
+	double alphaCTE; //!< Coefficient of thermal expansion (CTE)
+	double muStatic; //!< Static coefficient of friction
+	double muKinetic; //!< Kinetic coefficient of friction
+	double zetaInternal; //!< Internal damping ratio
+	double zetaGlobal; //!< Global damping ratio
+	double zetaCollision; //!< Collision damping ratio
 
 	Vec3D<double> extScale; //!< A prescribed scaling factor. default of (1,1,1) is no scaling.
 
 	//derived quantities to cache
 	virtual bool updateAll() {return false;} //!< Updates and recalculates eveything possible (used by inherited classed when material properties have changed)
 	virtual bool updateDerived(); //!< Updates all the derived quantities cached as member variables for this and derived classes. (Especially if density, size or elastic modulus changes.)
-	float _eHat; //!< Cached effective elastic modulus for materials with non-zero Poisson's ratio.
+	double _eHat; //!< Cached effective elastic modulus for materials with non-zero Poisson's ratio.
 
 
 	//Future parameters:
@@ -145,8 +174,8 @@ protected:
 	//compressive strength? (/compressive data)
 	//heat conduction
 
-	bool setYieldFromData(float percentStrainOffset=0.2); //!< Sets sigmaYield and epsilonYield assuming strainData, stressData, E, and failStrain are set correctly.
-	float strain(float stress); //!< Returns a simple reverse lookup of the first strain that yields this stress from data point lookup.
+	bool setYieldFromData(double percentStrainOffset=0.2); //!< Sets sigmaYield and epsilonYield assuming strainData, stressData, E, and failStrain are set correctly.
+	double strain(double stress); //!< Returns a simple reverse lookup of the first strain that yields this stress from data point lookup.
 
 	std::vector<CVX_Material*> dependentMaterials; //!< Any materials in this list will have updateDerived() called whenever it's called for this material. For example, in Voxelyze this is used for updatng link materials when one or both voxel materials change
 

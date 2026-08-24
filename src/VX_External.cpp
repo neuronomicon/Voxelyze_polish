@@ -37,7 +37,7 @@ CVX_External& CVX_External::operator=(const CVX_External& eIn)
 void CVX_External::reset()
 {
 	dofFixed=0;
-	extForce = extMoment = Vec3D<float>();
+	extForce = extMoment = Vec3D<double>();
 	extTranslation = Vec3D<double>();
 	extRotation = Vec3D<double>();
 	rotationChanged();
@@ -53,7 +53,7 @@ void CVX_External::setFixed(bool xTranslate, bool yTranslate, bool zTranslate, b
 void CVX_External::setDisplacement(dofComponent dof, double displacement)
 {
 	dofSet(dofFixed, dof, true);
-	if (displacement != 0.0f){
+	if (displacement != 0.0){
 		if (dof & X_TRANSLATE) extTranslation.x = displacement;
 		if (dof & Y_TRANSLATE) extTranslation.y = displacement;
 		if (dof & Z_TRANSLATE) extTranslation.z = displacement;

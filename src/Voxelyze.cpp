@@ -25,10 +25,45 @@ See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/document.h"
 
+
+void CVoxelyze::SliceVoxelLinkSample(CVX_Voxel* Voxel1, CVX_Voxel* Voxel2)
+{
+    for (int i = 0; i < 6; i++)
+    {
+        CVX_Voxel::linkDirection direction = (CVX_Voxel::linkDirection)i;
+
+        if (Voxel1->link(direction))
+        {
+            if (Voxel1->link(direction)->voxel(true))
+            {
+                if (Voxel1->link(direction)->voxel(true) == Voxel2)
+                {
+                    this->removeLink(Voxel1->indexX(), Voxel1->indexY(), Voxel1->indexZ(), direction);
+                    return;
+                }
+            }
+
+            if (Voxel1->link(direction)->voxel(false))
+            {
+                if (Voxel1->link(direction)->voxel(false) == Voxel2)
+                {
+                    this->removeLink(Voxel1->indexX(), Voxel1->indexY(), Voxel1->indexZ(), direction);
+                    return;
+                }
+            }
+        }
+    }
+}
+
+
 CVoxelyze::CVoxelyze(double voxelSize)
 {
 	clear();
 	voxSize = voxelSize <= 0 ? DEFAULT_VOXEL_SIZE : voxelSize;
+
+	is_thread = false;
+	is_nested = true;
+	num_thread = 0;
 }
 
 CVoxelyze::~CVoxelyze(void)
@@ -140,13 +175,13 @@ bool CVoxelyze::readJSON(rapidjson::Value& vxl)
 
 			bool dof[6] = {false};
 			double disp[6] = {0};
-			Vec3D<float> force, moment;
+			Vec3D<double> force, moment;
 
 			if (ext.HasMember("fixed") && ext["fixed"].IsArray() && ext["fixed"].Size()==6) for (int j=0; j<6; j++){dof[j] = ext["fixed"][j].GetBool();}
 			if (ext.HasMember("translate") && ext["translate"].IsArray() && ext["translate"].Size()==3) for (int j=0; j<3; j++){disp[j] = ext["translate"][j].GetDouble();}
 			if (ext.HasMember("rotate") && ext["rotate"].IsArray() && ext["rotate"].Size()==3) for (int j=0; j<3; j++){disp[3+j] = ext["rotate"][j].GetDouble();}
-			if (ext.HasMember("force") && ext["force"].IsArray() && ext["force"].Size()==3) for (int j=0; j<3; j++){force[j] = (float)ext["force"][j].GetDouble();}
-			if (ext.HasMember("moment") && ext["moment"].IsArray() && ext["moment"].Size()==3) for (int j=0; j<3; j++){moment[j] = (float)ext["moment"][j].GetDouble();}
+			if (ext.HasMember("force") && ext["force"].IsArray() && ext["force"].Size()==3) for (int j=0; j<3; j++){force[j] = (double)ext["force"][j].GetDouble();}
+			if (ext.HasMember("moment") && ext["moment"].IsArray() && ext["moment"].Size()==3) for (int j=0; j<3; j++){moment[j] = (double)ext["moment"][j].GetDouble();}
 
 			for (int j=0; j<(int)ext["voxelIndices"].Size(); j++){
 				CVX_External* pE = voxelsList[ext["voxelIndices"][j].GetInt()]->external();
@@ -224,8 +259,8 @@ bool CVoxelyze::writeJSON(rapidjson::PrettyWriter<rapidjson::StringBuffer>& w)
 
 			if (e->isFixedAnyTranslation() && e->translation() != Vec3D<double>()){w.Key("translate"); w.StartArray(); for (int j=0; j<3; j++) w.Double(e->translation()[j]); w.EndArray();}
 			if (e->isFixedAnyRotation() && e->rotation() != Vec3D<double>()){w.Key("rotate"); w.StartArray(); for (int j=0; j<3; j++) w.Double(e->rotation()[j]); w.EndArray();}
-			if (!e->isFixedAllTranslation() && e->force() != Vec3D<float>()){w.Key("force"); w.StartArray(); for (int j=0; j<3; j++) w.Double(e->force()[j]); w.EndArray();}
-			if (!e->isFixedAllRotation() && e->moment() != Vec3D<float>()){w.Key("moment"); w.StartArray(); for (int j=0; j<3; j++) w.Double(e->moment()[j]); w.EndArray();}
+			if (!e->isFixedAllTranslation() && e->force() != Vec3D<double>()){w.Key("force"); w.StartArray(); for (int j=0; j<3; j++) w.Double(e->force()[j]); w.EndArray();}
+			if (!e->isFixedAllRotation() && e->moment() != Vec3D<double>()){w.Key("moment"); w.StartArray(); for (int j=0; j<3; j++) w.Double(e->moment()[j]); w.EndArray();}
 
 			w.Key("voxelIndices");
 			w.StartArray();
@@ -248,76 +283,182 @@ bool CVoxelyze::doLinearSolve() //linearizes at current point and solves
 	return true;
 }
 
-bool CVoxelyze::doTimeStep(float dt)
-{
-	if (dt==0) return true;
-	else if (dt<0) dt = recommendedTimeStep();
 
+
+
+#include <omp.h>
+
+#define OMP_PRAG    _Pragma("omp parallel for num_threads(num_thread) if(is_thread)")
+
+
+bool CVoxelyze::doTimeStep(double dt)
+{
+//	if (dt==0) return true;
+//	else if (dt<0) dt = recommendedTimeStep();
+	if (dt<0) dt = recommendedTimeStep();
+
+	
+
+	
 	//Euler integration:
 	bool Diverged = false;
-	int linkCount = linksList.size();
+	int linkCount = (int)linksList.size();
+	
+	int voxCount = (int)voxelsList.size();
 
-#ifdef USE_OMP
-#pragma omp parallel for
-#endif
-	for (int i = 0; i<linkCount; i++){
+
+
+/*
+// This is the INCONSISTENCY PROBLEM !!
+#pragma omp parallel OMP_TAIL
+	for (int i = 0; i<linkCount; i++)
+	{
 		linksList[i]->updateForces();
-		if (linksList[i]->axialStrain() > 100) Diverged = true; //catch divergent condition! (if any thread sets true we will fail, so don't need mutex...
+		if (linksList[i]->axialStrain() > 100)	Diverged = true; //catch divergent condition! (if any thread sets true we will fail, so don't need mutex...		
+	}
+*/
+
+
+// [Phase 1] 링크 기하학 정보 및 Strain 값 일괄 갱신
+OMP_PRAG
+	for (int i = 0; i < linkCount; i++)	linksList[i]->preUpdateGeometry();
+
+// [Phase 2] 복셀 캐시(Poisson Strain) 일괄 갱신 (Race Condition 방지)
+// 링크 정보가 모두 최신이므로, 여기서 정확한 Poisson 비율 계산 가능
+OMP_PRAG
+	for (int i = 0; i < voxCount; i++)	voxelsList[i]->poissonsStrain();	// 내부적으로 flag를 확인하고 계산을 수행하여 캐시를 채워둠
+
+// [Phase 3] 최종 힘 계산 및 발산 체크
+OMP_PRAG
+	for (int i = 0; i < linkCount; i++)
+	{
+		linksList[i]->finalUpdateForces();    
+		if (linksList[i]->axialStrain() > 100) Diverged = true;
 	}
 
 
 	if (Diverged) return false;
 
 	if (collisions) updateCollisions();
-	int voxCount = voxelsList.size();
 
-#ifdef USE_OMP
-#pragma omp parallel for
-#endif
-	for (int i=0; i<voxCount; i++){
-		voxelsList[i]->timeStep(dt);
-	}
+
+
+OMP_PRAG
+	for (int i=0; i<voxCount; i++)	voxelsList[i]->timeStep(dt);
 
 
 	currentTime += dt;
 	return true;
 }
 
-float CVoxelyze::recommendedTimeStep() const
+
+void CVoxelyze::updateCollisions()
+{
+	double watchRadiusVx = 2.0*boundingRadius + watchDistance; //outer radius to track all voxels within
+	double watchRadiusMm = (double)(voxSize*watchRadiusVx); //outer radius to track all voxels within
+	double recalcDist = (double)(voxSize*watchDistance*0.5); //if the voxel moves further than this radius, recalc! //1/2 the allowabl, accounting for 0.5x radius of the voxel iself
+
+	//if voxels have been added/removed, regenerate everybody's nearby list
+	if (nearbyStale){
+		for (std::vector<CVX_Voxel*>::iterator it=voxelsList.begin(); it != voxelsList.end(); it++)
+		{
+			(*it)->generateNearby(watchRadiusVx*2.0, false);
+		}
+		nearbyStale = false;
+		collisionsStale = true;
+	}
+
+	//check if any voxels have moved far enough to make collisions stale
+	int voxCount = (int)voxelsList.size();
+
+	
+OMP_PRAG
+	for (int i=0; i<voxCount; i++)
+	{
+		CVX_Voxel* pV = voxelsList[i]; //(*it);
+		if (pV->isSurface() && (pV->pos - *pV->lastColWatchPosition).Length2() > recalcDist*recalcDist)
+		{
+			collisionsStale = true;	
+		}
+	}
+
+
+
+	if (collisionsStale) regenerateCollisions(watchRadiusMm*watchRadiusMm);
+
+	//update the forces!
+
+	int colCount = (int)collisionsList.size();
+
+
+OMP_PRAG
+	for (int i=0; i<colCount; i++)
+	{
+		collisionsList[i]->updateContactForce();
+	}
+
+}
+
+
+
+double CVoxelyze::recommendedTimeStep() const
 {
 	//find the largest natural frequency (sqrt(k/m)) that anything in the simulation will experience, then multiply by 2*pi and invert to get the optimally largest timestep that should retain stability
-	float MaxFreq2 = 0.0f; //maximum frequency in the simulation in rad/sec
+	double MaxFreq2 = 0.0; //maximum frequency in the simulation in rad/sec
 
 	for (std::vector<CVX_Link*>::const_iterator it=linksList.begin(); it != linksList.end(); it++){ //for each link
 		CVX_Link* pL = (*it);
 		//axial
-		float m1 = pL->pVNeg->mat->mass(),  m2 = pL->pVPos->mat->mass();
-		float thisMaxFreq2 = pL->axialStiffness()/(m1<m2?m1:m2);
+		double m1 = pL->pVNeg->mat->mass(),  m2 = pL->pVPos->mat->mass();
+		double thisMaxFreq2 = pL->axialStiffness()/(m1<m2?m1:m2);
 		if (thisMaxFreq2 > MaxFreq2) MaxFreq2 = thisMaxFreq2;
 
 		//rotational will always be less than or equal
 	}
 
 
-	if (MaxFreq2 <= 0.0f){ //didn't find anything (i.e no links) check for individual voxelss
+	if (MaxFreq2 <= 0.0){ //didn't find anything (i.e no links) check for individual voxelss
 		for (std::vector<CVX_Voxel*>::const_iterator it=voxelsList.begin(); it != voxelsList.end(); it++){ //for each link
-			float thisMaxFreq2 = (*it)->mat->youngsModulus()*(*it)->mat->nomSize/(*it)->mat->mass(); 
+			double thisMaxFreq2 = (*it)->mat->youngsModulus()*(*it)->mat->nomSize/(*it)->mat->mass(); 
 			if (thisMaxFreq2 > MaxFreq2) MaxFreq2 = thisMaxFreq2;
 		}
 	}
 	
-	if (MaxFreq2 <= 0.0f) return 0.0f;
-	else return 1.0f/(6.283185f*sqrt(MaxFreq2)); //the optimal timestep is to advance one radian of the highest natural frequency
+	if (MaxFreq2 <= 0.0) return 0.0;
+	else return 1.0/(6.283185*sqrt(MaxFreq2)); //the optimal timestep is to advance one radian of the highest natural frequency
 }
 
 void CVoxelyze::resetTime()
 {
-	currentTime=0.0f;
+	currentTime=0.0;
 	collisionsStale = true;
 	nearbyStale = true;
 
-	for (std::vector<CVX_Voxel*>::iterator it=voxelsList.begin(); it != voxelsList.end(); it++) (*it)->reset(); //reset each voxel
-	for (std::vector<CVX_Link*>::iterator it=linksList.begin(); it != linksList.end(); it++) (*it)->reset(); //for each link
+	for (std::vector<CVX_Voxel*>::iterator it=voxelsList.begin(); it != voxelsList.end(); it++) 
+		(*it)->reset(); //reset each voxel
+
+	for (std::vector<CVX_Link*>::iterator it=linksList.begin(); it != linksList.end(); it++) 
+		(*it)->reset(); //for each link
+
+
+	for (std::vector<CVX_Voxel*>::iterator it=voxelsList.begin(); it != voxelsList.end(); it++) 
+		(*it)->reset(); //reset each voxel
+
+/*
+	for ( int i = 0 ; i<voxelsList.size(); i++ )
+	{
+		printf( "%d ", voxelsList[i]->boolStates ); //reset each voxel
+	}
+	printf("\n");
+*/
+
+/*	for ( int i = 0 ; i<voxelsList.size(); i++ ) 
+		voxelsList[i]->reset(); //reset each voxel
+
+	for ( int i = 0 ; i<linksList.size(); i++ ) 
+		linksList[i]->reset(); //reset each voxel
+*/
+
 }
 
 void CVoxelyze::clear() //deallocates and returns everything to defaults (except voxel size)
@@ -340,9 +481,9 @@ void CVoxelyze::clear() //deallocates and returns everything to defaults (except
 	linkMats.clear();
 
 	//voxSize = DEFAULT_VOXEL_SIZE;
-	currentTime=0.0f;
-	ambientTemp = 0.0f;
-	grav = 0.0f;
+	currentTime=0.0;
+	ambientTemp = 0.0;
+	grav = 0.0;
 	floor = false;
 	collisions = false;
 
@@ -350,11 +491,11 @@ void CVoxelyze::clear() //deallocates and returns everything to defaults (except
 	collisionsStale = true;
 	nearbyStale = true;
 
-	boundingRadius = 0.75f;
-	watchDistance = 1.0f;
+	boundingRadius = 0.75;
+	watchDistance = 1.0;
 }
 
-CVX_Material* CVoxelyze::addMaterial(float youngsModulus, float density)
+CVX_Material* CVoxelyze::addMaterial(double youngsModulus, double density)
 {
 	try {
 		CVX_MaterialVoxel* pMat = new CVX_MaterialVoxel(youngsModulus, density, voxSize);
@@ -362,7 +503,7 @@ CVX_Material* CVoxelyze::addMaterial(float youngsModulus, float density)
 		voxelMats.push_back(pMat);
 		return pMat; 
 	}
-	catch (std::bad_alloc&){return NULL;}
+	catch (std::bad_alloc&){return nullptr;}
 }
 
 CVX_Material* CVoxelyze::addMaterial(rapidjson::Value& mat)
@@ -421,13 +562,13 @@ bool CVoxelyze::replaceMaterial(CVX_Material* replaceMe, CVX_Material* replaceWi
 
 CVX_Voxel* CVoxelyze::setVoxel(CVX_Material* material, int xIndex, int yIndex, int zIndex)
 {
-	if (material == NULL){
+	if (material == nullptr){
 		removeVoxel(xIndex, yIndex, zIndex);
-		return NULL;
+		return nullptr;
 	}
 	
 	CVX_Voxel* pV = voxels(xIndex, yIndex, zIndex);
-	if (pV != NULL){
+	if (pV != nullptr){
 		replaceVoxel((CVX_MaterialVoxel*)material, xIndex, yIndex, zIndex);
 		return pV;
 	}
@@ -444,10 +585,14 @@ CVX_Voxel* CVoxelyze::addVoxel(CVX_MaterialVoxel* newVoxelMaterial, int xIndex, 
 		CVX_Voxel* pV = new CVX_Voxel(newVoxelMaterial, xIndex, yIndex, zIndex);
 		voxels.addValue(xIndex, yIndex, zIndex, pV); //add to the array
 		voxelsList.push_back(pV);
+
 		pV->pos = Vec3D<double>(xIndex*voxSize, yIndex*voxSize, zIndex*voxSize); //set initial voxel location (extrapolate?)
+
 		pV->enableFloor(floor);
 		pV->setTemperature(ambientTemp); //add it at environment temperature
 		pV->enableCollisions(collisions);
+
+		
 
 		//add any possible links utilizing this voxel
 		for (int i=0; i<6; i++){ //from X_POS to Z_NEG (0-5 enums)
@@ -456,7 +601,7 @@ CVX_Voxel* CVoxelyze::addVoxel(CVX_MaterialVoxel* newVoxelMaterial, int xIndex, 
 		return pV;
 	}
 	catch (std::bad_alloc&){
-		return NULL;
+		return nullptr;
 	}
 }
 
@@ -466,7 +611,7 @@ void CVoxelyze::removeVoxel(int xIndex, int yIndex, int zIndex)
 	nearbyStale = collisionsStale = true;
 
 	const CVX_Voxel* pV = voxel(xIndex, yIndex, zIndex);
-	if (pV==NULL) return; //no voxel exists here.
+	if (pV==nullptr) return; //no voxel exists here.
 	delete pV;
 	voxels.removeValue(xIndex, yIndex, zIndex); //remove from the array
 	for (std::vector<CVX_Voxel*>::iterator it = voxelsList.begin(); it!=voxelsList.end(); it++){ //remove from the list
@@ -516,7 +661,7 @@ CVX_Link* CVoxelyze::addLink(int xIndex, int yIndex, int zIndex, CVX_Voxel::link
 		xIndex+xIndexVoxelOffset(direction),
 		yIndex+yIndexVoxelOffset(direction),
 		zIndex+zIndexVoxelOffset(direction));
-	if (voxel1 == NULL || voxel2 == NULL) return NULL; //if no voxel at either position, don't make a link
+	if (voxel1 == nullptr || voxel2 == nullptr) return nullptr; //if no voxel at either position, don't make a link
 	
 
 	//make the link and add it to the array+list
@@ -530,7 +675,7 @@ CVX_Link* CVoxelyze::addLink(int xIndex, int yIndex, int zIndex, CVX_Voxel::link
 			zIndex + zIndexLinkOffset(direction), pL);
 	}
 	catch (std::bad_alloc&){
-		return NULL;
+		return nullptr;
 	}
 	//Add reference to this link to the relevant voxels
 	voxel1->addLinkInfo(direction, pL);
@@ -541,7 +686,7 @@ CVX_Link* CVoxelyze::addLink(int xIndex, int yIndex, int zIndex, CVX_Voxel::link
 void CVoxelyze::removeLink(int xIndex, int yIndex, int zIndex, CVX_Voxel::linkDirection direction)
 {
 	CVX_Link* pL = link(xIndex, yIndex, zIndex, direction);
-	if (pL==NULL) return; //no link here to see!
+	if (pL==nullptr) return; //no link here to see!
 
 	//remove the reference in the appropriate link 3d array
 	links[CVX_Voxel::toAxis(direction)].removeValue( 
@@ -582,7 +727,7 @@ bool CVoxelyze::exists(const CVX_MaterialVoxel* toCheck)
 
 }
 
-void CVoxelyze::setAmbientTemperature(float temperature, bool allVoxels)
+void CVoxelyze::setAmbientTemperature(double temperature, bool allVoxels)
 {
 	ambientTemp = temperature;
 	//for now just set the temperature of each voxel (independent of future
@@ -593,7 +738,7 @@ void CVoxelyze::setAmbientTemperature(float temperature, bool allVoxels)
 	}
 }
 
-void CVoxelyze::setGravity(float g)
+void CVoxelyze::setGravity(double g)
 {
 	grav = g;
 	for (std::vector<CVX_MaterialVoxel*>::iterator it=voxelMats.begin(); it != voxelMats.end(); it++){
@@ -667,47 +812,7 @@ void CVoxelyze::setVoxelSize(double voxelSize) //sets the voxel size.
 	collisionsStale = true;
 }
 
-void CVoxelyze::updateCollisions()
-{
-	float watchRadiusVx = 2*boundingRadius+watchDistance; //outer radius to track all voxels within
-	float watchRadiusMm = (float)(voxSize*watchRadiusVx); //outer radius to track all voxels within
-	float recalcDist = (float)(voxSize*watchDistance/2); //if the voxel moves further than this radius, recalc! //1/2 the allowabl, accounting for 0.5x radius of the voxel iself
 
-	//if voxels have been added/removed, regenerate everybody's nearby list
-	if (nearbyStale){
-		for (std::vector<CVX_Voxel*>::iterator it=voxelsList.begin(); it != voxelsList.end(); it++){
-			(*it)->generateNearby(watchRadiusVx*2, false);
-		}
-		nearbyStale = false;
-		collisionsStale = true;
-	}
-
-	//check if any voxels have moved far enough to make collisions stale
-	int voxCount = voxelsList.size();
-
-#ifdef USE_OMP
-#pragma omp parallel for
-#endif
-	for (int i=0; i<voxCount; i++){
-		CVX_Voxel* pV = voxelsList[i]; //(*it);
-		if (pV->isSurface() && (pV->pos - *pV->lastColWatchPosition).Length2() > recalcDist*recalcDist){
-			collisionsStale = true;
-		}
-	}
-
-	if (collisionsStale) regenerateCollisions(watchRadiusMm*watchRadiusMm);
-
-	//update the forces!
-
-	int colCount = collisionsList.size();
-#ifdef USE_OMP
-#pragma omp parallel for
-#endif
-	for (int i=0; i<colCount; i++){
-		collisionsList[i]->updateContactForce();
-	}
-
-}
 
 void CVoxelyze::clearCollisions()
 {
@@ -722,7 +827,7 @@ void CVoxelyze::clearCollisions()
 }
 
 
-void CVoxelyze::regenerateCollisions(float threshRadiusSq)
+void CVoxelyze::regenerateCollisions(double threshRadiusSq)
 {
 	clearCollisions();
 
@@ -730,7 +835,7 @@ void CVoxelyze::regenerateCollisions(float threshRadiusSq)
 	for (std::vector<CVX_Voxel*>::iterator it=voxelsList.begin(); it != voxelsList.end(); it++){
 		CVX_Voxel* pV1 = *it;
 		if (pV1->isInterior()) continue; //don't care about interior voxels here.
-		*pV1->lastColWatchPosition = (Vec3D<float>)pV1->pos; //remember where collisions were last calculated at
+		*pV1->lastColWatchPosition = (Vec3D<double>)pV1->pos; //remember where collisions were last calculated at
 
 		for (std::vector<CVX_Voxel*>::iterator jt=it+1; jt != voxelsList.end(); jt++){
 			CVX_Voxel* pV2 = *jt;
@@ -749,23 +854,27 @@ void CVoxelyze::regenerateCollisions(float threshRadiusSq)
 	collisionsStale = false; //good to go!
 }
 
-float CVoxelyze::stateInfo(stateInfoType info, valueType type)
+double CVoxelyze::stateInfo(stateInfoType info, valueType type)
 {
-	float returnVal = 0;
+	double returnVal = 0;
 	if (type == MAX) returnVal = -FLT_MAX;
 	else if (type == MIN) returnVal = FLT_MAX;
 
-	if (info == STRAIN_ENERGY || info==ENG_STRESS || info==ENG_STRAIN){ //Link properties
+	if (info == STRAIN_ENERGY || info==ENG_STRESS || info==ENG_STRAIN)
+	{ //Link properties
 		if (linkCount() == 0) return 0.0;
-		for (std::vector<CVX_Link*>::const_iterator it = linksList.begin(); it!=linksList.end(); it++){ //for each link
-			float thisVal = 0;
-			switch (info){
+		for (std::vector<CVX_Link*>::const_iterator it = linksList.begin(); it!=linksList.end(); it++)
+		{ //for each link
+			double thisVal = 0;
+			switch (info)
+			{
 				case STRAIN_ENERGY: thisVal = (*it)->strainEnergy();break;
 				case ENG_STRESS: thisVal = (*it)->axialStress(); break;
 				case ENG_STRAIN: thisVal = (*it)->axialStrain(); break;
 				default: thisVal=0;
 			}
-			switch (type){
+			switch (type)
+			{
 				case MIN: if (thisVal < returnVal) returnVal = thisVal; break;
 				case MAX: if (thisVal > returnVal) returnVal = thisVal; break;
 				case TOTAL: case AVERAGE: returnVal += thisVal; 
@@ -773,11 +882,14 @@ float CVoxelyze::stateInfo(stateInfoType info, valueType type)
 		}
 		if (type == AVERAGE) returnVal /= linkCount();
 	}
-	else { //voxel properties: DISPLACEMENT, VELOCITY, KINETIC_ENERGY, ANGULAR_DISPLACEMENT, ANGULAR_VELOCITY, PRESSURE, MASS
+	else 
+	{ //voxel properties: DISPLACEMENT, VELOCITY, KINETIC_ENERGY, ANGULAR_DISPLACEMENT, ANGULAR_VELOCITY, PRESSURE, MASS
 		if (voxelCount() == 0) return 0.0;
-		for (std::vector<CVX_Voxel*>::const_iterator it = voxelsList.begin(); it!=voxelsList.end(); it++){ //for each voxel
-			float thisVal = 0;
-			switch (info){
+		for (std::vector<CVX_Voxel*>::const_iterator it = voxelsList.begin(); it!=voxelsList.end(); it++)
+		{ //for each voxel
+			double thisVal = 0;
+			switch (info)
+			{
 				case DISPLACEMENT: thisVal = (*it)->displacementMagnitude(); break;
 				case VELOCITY: thisVal = (*it)->velocityMagnitude(); break;
 				case KINETIC_ENERGY: thisVal = (*it)->kineticEnergy();break;
@@ -787,7 +899,8 @@ float CVoxelyze::stateInfo(stateInfoType info, valueType type)
 				case MASS: thisVal = (*it)->material()->mass(); break;
 				default: thisVal=0;
 			}
-			switch (type){
+			switch (type)
+			{
 				case MIN: if (thisVal < returnVal) returnVal = thisVal; break;
 				case MAX: if (thisVal > returnVal) returnVal = thisVal; break;
 				case TOTAL: case AVERAGE: returnVal += thisVal; 
