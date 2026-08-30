@@ -1,0 +1,37 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Z_SHIM\\PROG_MAJOR\\PROJECT\\Voxelyze_Optim\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{2EFE3A99-704B-426D-9E14-03E3800418FE}|Voxelyze.vcxproj|C:\\Z_SHIM\\PROG_MAJOR\\PROJECT\\Voxelyze_Optim\\src\\VX_Voxel.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{2EFE3A99-704B-426D-9E14-03E3800418FE}|Voxelyze.vcxproj|solutionrelative:src\\VX_Voxel.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "VX_Voxel.cpp",
+              "DocumentMoniker": "C:\\Z_SHIM\\PROG_MAJOR\\PROJECT\\Voxelyze_Optim\\src\\VX_Voxel.cpp",
+              "RelativeDocumentMoniker": "src\\VX_Voxel.cpp",
+              "ToolTip": "C:\\Z_SHIM\\PROG_MAJOR\\PROJECT\\Voxelyze_Optim\\src\\VX_Voxel.cpp",
+              "RelativeToolTip": "src\\VX_Voxel.cpp",
+              "ViewState": "AgIAACQAAAAAAAAAAAAAAEgAAAAgAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2026-08-30T11:50:14.865Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -66,6 +66,11 @@ void CVX_Voxel::reset()
 	temp=0.0;
 	previousDt=0.0;
 	poissonsStrainInvalid = true;
+
+	if (ext) ext->reset();
+
+	if (colWatch) colWatch->clear();
+    if (nearby) nearby->clear();
 }
 
 CVX_Voxel* CVX_Voxel::adjacentVoxel(linkDirection direction) const

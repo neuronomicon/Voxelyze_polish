@@ -1,0 +1,14 @@
+{
+    "version": 1,
+    "revision": 0,
+    "rules": [
+        {
+            "primary-output": "C:\\Z_SHIM\\PROG_MAJOR\\PROJECT\\Voxelyze_Optim\\lib\\Debug\\VX_Voxel.obj",
+            "outputs": [
+                "C:\\Z_SHIM\\PROG_MAJOR\\PROJECT\\Voxelyze_Optim\\lib\\Debug\\VX_Voxel.cpp.obj.dt.module.json",
+                "C:\\Z_SHIM\\PROG_MAJOR\\PROJECT\\Voxelyze_Optim\\lib\\Debug\\VX_Voxel.cpp.obj.dt.d.json"
+            ],
+            "requires": []
+        }
+    ]
+}
