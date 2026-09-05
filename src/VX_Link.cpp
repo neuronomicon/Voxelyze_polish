@@ -9,14 +9,6 @@ Voxelyze is distributed in the hope that it will be useful, but WITHOUT ANY WARR
 See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 *******************************************************************************/
 
-/****************************************************************************************************
-Modified Copyright (c) 2026, YoonSik Shim
-
-[Modification Notice]
-- Replaced the single updateForces() function with preUpdateGeometry() and finalUpdateForces()
-  to enforce strict write/read separation and eliminate OpenMP multi-threading inconsistencies.
-******************************************************************************************************/
-
 #include "VX_Link.h"
 #include "VX_Voxel.h"
 #include "VX_MaterialLink.h"
@@ -298,6 +290,12 @@ double CVX_Link::b1() const {return mat->_b1;}
 double CVX_Link::b2() const {return mat->_b2;}
 double CVX_Link::b3() const {return mat->_b3;}
 
+
+
+
+
+
+//////////////////  GEMINI ///////////////////////////////////////////////////////////////////////
 
 
 

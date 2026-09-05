@@ -1,4 +1,4 @@
-/*******************************************************************************
+ï»¿/*******************************************************************************
 Copyright (c) 2015, Jonathan Hiller
 To cite academic use of Voxelyze: Jonathan Hiller and Hod Lipson "Dynamic Simulation of Soft Multimaterial 3D-Printed Objects" Soft Robotics. March 2014, 1(1): 88-101.
 Available at http://online.liebertpub.com/doi/pdfplus/10.1089/soro.2013.0010
@@ -8,15 +8,6 @@ Voxelyze is free software: you can redistribute it and/or modify it under the te
 Voxelyze is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details.
 See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 *******************************************************************************/
-
-/****************************************************************************************************
-Modified Copyright (c) 2026, YoonSik Shim
-
-[Modification Notice]
-- Refactored doTimeStep() to implement a 3-phase execution loop (Pre-update Geometry -> 
-  Poisson's Strain Synchronization -> Final Force Calculation) utilizing OpenMP implicit barriers
-  to guarantee 100% deterministic simulation results.
-*****************************************************************************************************/
 
 #include "Voxelyze.h"
 #include "VX_Material.h"
@@ -328,16 +319,16 @@ bool CVoxelyze::doTimeStep(double dt)
 */
 
 
-// [Phase 1] ¸µÅ© ±âÇÏÇĞ Á¤º¸ ¹× Strain °ª ÀÏ°ı °»½Å
+// [Phase 1] ë§í¬ ê¸°í•˜í•™ ì •ë³´ ë° Strain ê°’ ì¼ê´„ ê°±ì‹ 
 OMP_PRAG
 	for (int i = 0; i < linkCount; i++)	linksList[i]->preUpdateGeometry();
 
-// [Phase 2] º¹¼¿ Ä³½Ã(Poisson Strain) ÀÏ°ı °»½Å (Race Condition ¹æÁö)
-// ¸µÅ© Á¤º¸°¡ ¸ğµÎ ÃÖ½ÅÀÌ¹Ç·Î, ¿©±â¼­ Á¤È®ÇÑ Poisson ºñÀ² °è»ê °¡´É
+// [Phase 2] ë³µì…€ ìºì‹œ(Poisson Strain) ì¼ê´„ ê°±ì‹  (Race Condition ë°©ì§€)
+// ë§í¬ ì •ë³´ê°€ ëª¨ë‘ ìµœì‹ ì´ë¯€ë¡œ, ì—¬ê¸°ì„œ ì •í™•í•œ Poisson ë¹„ìœ¨ ê³„ì‚° ê°€ëŠ¥
 OMP_PRAG
-	for (int i = 0; i < voxCount; i++)	voxelsList[i]->poissonsStrain();	// ³»ºÎÀûÀ¸·Î flag¸¦ È®ÀÎÇÏ°í °è»êÀ» ¼öÇàÇÏ¿© Ä³½Ã¸¦ Ã¤¿öµÒ
+	for (int i = 0; i < voxCount; i++)	voxelsList[i]->poissonsStrain();	// ë‚´ë¶€ì ìœ¼ë¡œ flagë¥¼ í™•ì¸í•˜ê³  ê³„ì‚°ì„ ìˆ˜í–‰í•˜ì—¬ ìºì‹œë¥¼ ì±„ì›Œë‘ 
 
-// [Phase 3] ÃÖÁ¾ Èû °è»ê ¹× ¹ß»ê Ã¼Å©
+// [Phase 3] ìµœì¢… í˜ ê³„ì‚° ë° ë°œì‚° ì²´í¬
 OMP_PRAG
 	for (int i = 0; i < linkCount; i++)
 	{
@@ -452,6 +443,22 @@ void CVoxelyze::resetTime()
 
 	for (std::vector<CVX_Voxel*>::iterator it=voxelsList.begin(); it != voxelsList.end(); it++) 
 		(*it)->reset(); //reset each voxel
+
+/*
+	for ( int i = 0 ; i<voxelsList.size(); i++ )
+	{
+		printf( "%d ", voxelsList[i]->boolStates ); //reset each voxel
+	}
+	printf("\n");
+*/
+
+/*	for ( int i = 0 ; i<voxelsList.size(); i++ ) 
+		voxelsList[i]->reset(); //reset each voxel
+
+	for ( int i = 0 ; i<linksList.size(); i++ ) 
+		linksList[i]->reset(); //reset each voxel
+*/
+
 }
 
 void CVoxelyze::clear() //deallocates and returns everything to defaults (except voxel size)
@@ -824,17 +831,45 @@ void CVoxelyze::regenerateCollisions(double threshRadiusSq)
 {
 	clearCollisions();
 
+
+	// [NaN [NaN ë°©ì–´] ìœ„ì¹˜ê°€ ìœ í•œí•˜ì§€ ì•Šì€ ë³µì…€ì´ í•˜ë‚˜ë¼ë„ ìˆìœ¼ë©´ ì¶©ëŒ ìƒì„±ì„ í¬ê¸°í•œë‹¤.
+	// NaN ì€ (a) axialStrain()>100 ë°œì‚° ê°ì§€, (b) Length2()>threshRadiusSq ë°˜ê²½
+	// í•„í„°ë¥¼ ë‘˜ ë‹¤ false ë¡œ í†µê³¼ì‹œì¼œ, í‘œë©´ ë³µì…€ ëª¨ë“  ìŒ(516^2/2 â‰ˆ 13ë§Œ)ì— ì¶©ëŒ
+	// ê°ì²´ë¥¼ ë§Œë“¤ê³  ê·¸ ìƒíƒœë¡œ ì˜êµ¬íˆ ëˆë‹¤.
+	for (auto it = voxelsList.begin(); it != voxelsList.end(); it++)
+	{
+		const Vec3D<double>& p = (*it)->pos;
+		if (!(p.x == p.x && p.y == p.y && p.z == p.z))
+		{
+			collisionsStale = false;	// ë‹¤ìŒ ìŠ¤í…ì— ì¬ì‹œë„í•˜ì§€ ì•Šë„ë¡
+			return;						// collisionsList ëŠ” ë¹„ì–´ ìˆëŠ” ìƒíƒœë¡œ ìœ ì§€
+		}
+	}
+
+
 	//check each combo of voxels and add a collision where necessary
-	for (std::vector<CVX_Voxel*>::iterator it=voxelsList.begin(); it != voxelsList.end(); it++){
+	for (std::vector<CVX_Voxel*>::iterator it=voxelsList.begin(); it != voxelsList.end(); it++)
+	{
 		CVX_Voxel* pV1 = *it;
+		
 		if (pV1->isInterior()) continue; //don't care about interior voxels here.
+		*pV1->lastColWatchPosition = (Vec3D<double>)pV1->pos;
+
 		*pV1->lastColWatchPosition = (Vec3D<double>)pV1->pos; //remember where collisions were last calculated at
 
-		for (std::vector<CVX_Voxel*>::iterator jt=it+1; jt != voxelsList.end(); jt++){
+		for (std::vector<CVX_Voxel*>::iterator jt=it+1; jt != voxelsList.end(); jt++)
+		{
 			CVX_Voxel* pV2 = *jt;
-			if (pV2->isInterior() || //don't care about interior voxels here.
+
+		/*	if (pV2->isInterior() || //don't care about interior voxels here.
 				(pV1->pos-pV2->pos).Length2() > threshRadiusSq || //discard anything outside the watch radius
 				std::find(pV1->nearby->begin(), pV1->nearby->end(), pV2) != pV1->nearby->end()) //discard if in the connected lattice array
+				continue;
+		*/
+			
+			if (pV2->isInterior() ||
+				(pV1->pos-pV2->pos).Length2() > threshRadiusSq ||
+				std::binary_search(pV1->nearby->begin(), pV1->nearby->end(), pV2))   // find ëŒ€ì²´
 				continue;
 
 			CVX_Collision* pCol = new CVX_Collision(pV1, pV2);

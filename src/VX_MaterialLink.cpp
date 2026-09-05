@@ -9,13 +9,6 @@ Voxelyze is distributed in the hope that it will be useful, but WITHOUT ANY WARR
 See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 *******************************************************************************/
 
-/*******************************************************************************
-Modified Copyright (c) 2026, YoonSik Shim
-
-[Modification Notice]
-- Applied DP_EPSILON for robust floating-point comparisons in material link logic.
-*******************************************************************************/
-
 #include "VX_MaterialLink.h"
 #include <assert.h>
 

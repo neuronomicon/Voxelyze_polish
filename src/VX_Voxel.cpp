@@ -9,14 +9,6 @@ Voxelyze is distributed in the hope that it will be useful, but WITHOUT ANY WARR
 See <http://www.opensource.org/licenses/lgpl-3.0.html> for license details.
 *******************************************************************************/
 
-/*******************************************************************************
-Modified Copyright (c) 2026, YoonSik Shim
-
-[Modification Notice]
-- Upgraded variables to double precision.
-- Applied margin-based Epsilon approach (floorPenetration() >= 1E-14) for stable floor collision detection.
-*******************************************************************************/
-
 #include "VX_Voxel.h"
 #include "VX_Material.h"
 #include "VX_Link.h"
@@ -444,6 +436,40 @@ void CVX_Voxel::enableCollisions(bool enabled, double watchRadius) {
 }
 
 
+#include <unordered_set>
+
+void CVX_Voxel::generateNearby(int linkDepth, bool surfaceOnly)
+{
+	std::vector<CVX_Voxel*> allNearby;
+    std::unordered_set<CVX_Voxel*> seen;	//////
+    allNearby.push_back(this);
+    seen.insert(this);						/////
+
+    int iCurrent = 0;
+    for (int k=0; k<linkDepth; k++){
+        int iPassEnd = (int)allNearby.size();
+        while (iCurrent != iPassEnd){
+            CVX_Voxel* pV = allNearby[iCurrent++];
+            for (int i=0; i<6; i++){
+                CVX_Voxel* pV2 = pV->adjacentVoxel((linkDirection)i);
+                if (pV2 && seen.insert(pV2).second) allNearby.push_back(pV2);	////
+            }
+        }
+    }
+
+
+	
+	nearby->clear();
+	for (auto it = allNearby.begin(); it != allNearby.end(); it++){
+		CVX_Voxel* pV = (*it);
+		if (pV->isSurface() && pV != this) nearby->push_back(pV);
+	}
+	std::sort(nearby->begin(), nearby->end());	//////
+
+}
+
+
+/*
 void CVX_Voxel::generateNearby(int linkDepth, bool surfaceOnly){
 	std::vector<CVX_Voxel*> allNearby;
 	allNearby.push_back(this);
@@ -462,9 +488,19 @@ void CVX_Voxel::generateNearby(int linkDepth, bool surfaceOnly){
 		}
 	}
 
+//	nearby->clear();
+//	for (std::vector<CVX_Voxel*>::iterator it = allNearby.begin(); it != allNearby.end(); it++){
+//		CVX_Voxel* pV = (*it);
+//		if (pV->isSurface() && pV != this) nearby->push_back(pV);		
+//	}
+
+	
 	nearby->clear();
-	for (std::vector<CVX_Voxel*>::iterator it = allNearby.begin(); it != allNearby.end(); it++){
+	for (auto it = allNearby.begin(); it != allNearby.end(); it++){
 		CVX_Voxel* pV = (*it);
-		if (pV->isSurface() && pV != this) nearby->push_back(pV);		
+		if (pV->isSurface() && pV != this) nearby->push_back(pV);
 	}
+	std::sort(nearby->begin(), nearby->end());
+
 }
+*/
